@@ -411,7 +411,7 @@ final class StatusBarUsageRowView: NSView {
         wantsLayer = true
 
         label.font = AppFont.medium(10.5)
-        label.textColor = .labelColor
+        label.textColor = .white
         label.alignment = .left
         label.translatesAutoresizingMaskIntoConstraints = false
 
@@ -450,14 +450,14 @@ final class StatusBarUsageRowView: NSView {
         let remaining = window.remainingPercent
         label.stringValue = window.compactLabel
         percent.stringValue = "\(remaining)%"
-        percent.textColor = progressColor(for: remaining)
+        percent.textColor = .white
         dots.update(remainingPercent: remaining)
     }
 
     func updatePlaceholder(label placeholder: String) {
         label.stringValue = placeholder
         percent.stringValue = "--"
-        percent.textColor = .secondaryLabelColor
+        percent.textColor = .white.withAlphaComponent(0.72)
         dots.update(remainingPercent: 0)
     }
 }
@@ -475,14 +475,16 @@ final class DotStripView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        let dotSize: CGFloat = 6.5
-        let gap = max(0, (bounds.width - dotSize * 5) / 4)
-        let y = (bounds.height - dotSize) / 2
+        let pillWidth: CGFloat = 4.8
+        let pillHeight: CGFloat = 8.2
+        let gap = max(0, (bounds.width - pillWidth * 5) / 4)
+        let y = (bounds.height - pillHeight) / 2
 
         for index in 0..<5 {
-            let x = CGFloat(index) * (dotSize + gap)
-            let rect = NSRect(x: x, y: y, width: dotSize, height: dotSize)
-            let path = NSBezierPath(ovalIn: rect)
+            let x = CGFloat(index) * (pillWidth + gap)
+            let rect = NSRect(x: x, y: y, width: pillWidth, height: pillHeight)
+            let radius = pillWidth / 2
+            let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
             let color = index < activeCount ? activeColor : NSColor.secondaryLabelColor.withAlphaComponent(0.35)
             color.setFill()
             path.fill()
