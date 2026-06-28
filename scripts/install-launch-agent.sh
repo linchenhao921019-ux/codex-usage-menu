@@ -2,11 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BINARY="$ROOT_DIR/.build/release/codex-usage-menu"
 PLIST="$HOME/Library/LaunchAgents/com.local.codex-usage-menu.plist"
 
 cd "$ROOT_DIR"
 swift build -c release
+BINARY="$(swift build -c release --show-bin-path)/codex-usage-menu"
 
 mkdir -p "$HOME/Library/LaunchAgents"
 cat > "$PLIST" <<PLIST
@@ -32,6 +32,7 @@ cat > "$PLIST" <<PLIST
 </plist>
 PLIST
 
-launchctl unload "$PLIST" 2>/dev/null || true
-launchctl load "$PLIST"
+launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null || true
+launchctl bootstrap "gui/$(id -u)" "$PLIST"
+launchctl kickstart -k "gui/$(id -u)/com.local.codex-usage-menu"
 echo "Installed and started: $PLIST"
