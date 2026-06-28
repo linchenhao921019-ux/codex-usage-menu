@@ -5,7 +5,30 @@
 - `5 小时` 窗口剩余百分比和重置时间
 - `1 周` 窗口剩余百分比和重置日期
 
-## 运行
+## 安装 macOS App
+
+推荐安装成正式 macOS 菜单栏 App：
+
+```bash
+chmod +x scripts/*.sh
+./scripts/install-macos-app.sh
+```
+
+安装后会生成：
+
+```text
+/Applications/Codex 用量.app
+```
+
+如果当前用户不能写入 `/Applications`，脚本会自动安装到：
+
+```text
+~/Applications/Codex 用量.app
+```
+
+这个 App 使用和 iOS App 相同的图标。双击 App 会在菜单栏显示用量；登录后也会自动启动。菜单里点击“退出”后，系统不会自动拉起，需要重新打开 App 或重新登录。
+
+## 调试运行
 
 ```bash
 swift run codex-usage-menu
@@ -23,14 +46,14 @@ swift run codex-usage-menu --json
 swift run codex-usage-menu --sync-json
 ```
 
-## 开机自启
+## 兼容旧安装命令
+
+旧脚本现在会转到新版 App 安装流程：
 
 ```bash
 chmod +x scripts/install-launch-agent.sh
 ./scripts/install-launch-agent.sh
 ```
-
-安装后会在登录时自动启动；如果从菜单里点击“退出”，系统不会自动拉起，需要重新登录或再次运行安装脚本才会启动。
 
 ## 字体
 
