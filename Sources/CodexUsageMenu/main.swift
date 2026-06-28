@@ -91,6 +91,24 @@ extension SyncUsageWindow {
     }
 }
 
+extension UsageWindow {
+    init(syncWindow: SyncUsageWindow) {
+        usedPercent = syncWindow.usedPercent
+        windowMinutes = syncWindow.windowMinutes
+        resetsAt = syncWindow.resetsAt
+    }
+}
+
+extension UsageSnapshot {
+    init(syncSnapshot: SyncUsageSnapshot, sourceURL: URL) {
+        timestamp = syncSnapshot.snapshotTimestamp
+        sourcePath = sourceURL.absoluteString
+        planType = syncSnapshot.planType
+        primary = syncSnapshot.primary.map(UsageWindow.init(syncWindow:))
+        secondary = syncSnapshot.secondary.map(UsageWindow.init(syncWindow:))
+    }
+}
+
 enum UsageSyncExporter {
     static let relativeSnapshotPath = "CodexUsage/codex-usage-snapshot.json"
 
@@ -163,8 +181,7 @@ final class SnapshotHTTPServer: @unchecked Sendable {
     private var listener: NWListener?
 
     var localURLString: String {
-        let host = Host.current().localizedName ?? "localhost"
-        return "http://\(host).local:8765/snapshot"
+        SnapshotProvider.localServerURLString
     }
 
     func start() {
@@ -210,11 +227,11 @@ final class SnapshotHTTPServer: @unchecked Sendable {
     }
 
     private func snapshotResponse() -> Data {
-        guard let snapshot = UsageReader.latestSnapshot() else {
+        guard let snapshot = SnapshotProvider.latestSnapshot() else {
             return httpResponse(
                 status: "404 Not Found",
                 contentType: "application/json; charset=utf-8",
-                body: Data("{\"ok\":false,\"error\":\"No Codex rate_limits found\"}".utf8)
+                body: Data("{\"ok\":false,\"error\":\"No Codex usage snapshot found\"}".utf8)
             )
         }
 
@@ -393,6 +410,91 @@ enum UsageReader {
     }
 }
 
+enum RemoteSnapshotReader {
+    static func latestSnapshot(from url: URL) -> UsageSnapshot? {
+        guard let data = try? Data(contentsOf: url) else {
+            return nil
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let syncSnapshot = try? decoder.decode(SyncUsageSnapshot.self, from: data) else {
+            return nil
+        }
+        return UsageSnapshot(syncSnapshot: syncSnapshot, sourceURL: url)
+    }
+}
+
+enum SnapshotProvider {
+    static var authorityHost: String {
+        nonEmptyEnvironmentValue("CODEX_USAGE_AUTHORITY_HOST") ?? "Mac-mini"
+    }
+
+    static var remoteSnapshotURL: URL {
+        if let value = nonEmptyEnvironmentValue("CODEX_USAGE_SNAPSHOT_URL"),
+           let url = URL(string: value) {
+            return url
+        }
+        return URL(string: "http://\(authorityHost).local:8765/snapshot")!
+    }
+
+    static var isAuthorityHost: Bool {
+        let authority = normalizedHostName(authorityHost)
+        return localHostCandidates.contains(authority)
+    }
+
+    static var allowsLocalFallback: Bool {
+        nonEmptyEnvironmentValue("CODEX_USAGE_ALLOW_LOCAL_FALLBACK") == "1"
+    }
+
+    static var sourceLabel: String {
+        isAuthorityHost ? "Mac mini 本机" : "Mac mini 远程"
+    }
+
+    static var localServerURLString: String {
+        let hostName = ProcessInfo.processInfo.hostName
+        let host = hostName.isEmpty ? "localhost" : hostName
+        let localHost = host.contains(".") ? host : "\(host).local"
+        return "http://\(localHost):8765/snapshot"
+    }
+
+    static func latestSnapshot() -> UsageSnapshot? {
+        if isAuthorityHost {
+            return UsageReader.latestSnapshot()
+        }
+
+        if let snapshot = RemoteSnapshotReader.latestSnapshot(from: remoteSnapshotURL) {
+            return snapshot
+        }
+
+        if allowsLocalFallback {
+            return UsageReader.latestSnapshot()
+        }
+        return nil
+    }
+
+    private static var localHostCandidates: Set<String> {
+        let values = [
+            ProcessInfo.processInfo.hostName,
+            Host.current().name,
+            Host.current().localizedName
+        ].compactMap { $0 }
+        return Set(values.map(normalizedHostName))
+    }
+
+    private static func nonEmptyEnvironmentValue(_ key: String) -> String? {
+        guard let value = ProcessInfo.processInfo.environment[key],
+              value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            return nil
+        }
+        return value
+    }
+
+    private static func normalizedHostName(_ value: String) -> String {
+        let withoutLocalSuffix = value.lowercased().replacingOccurrences(of: ".local", with: "")
+        return withoutLocalSuffix.filter { $0.isLetter || $0.isNumber }
+    }
+}
+
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -400,6 +502,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let snapshotServer = SnapshotHTTPServer()
     private var timer: Timer?
     private var snapshot: UsageSnapshot?
+    private var sourceUnavailable = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -436,8 +539,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func refresh() {
-        snapshot = UsageReader.latestSnapshot()
-        if let snapshot {
+        let latestSnapshot = SnapshotProvider.latestSnapshot()
+        sourceUnavailable = latestSnapshot == nil
+        if let latestSnapshot {
+            snapshot = latestSnapshot
+        } else if SnapshotProvider.isAuthorityHost {
+            snapshot = nil
+        }
+
+        if let snapshot, SnapshotProvider.isAuthorityHost {
             try? UsageSyncExporter.export(snapshot: snapshot)
         }
         render()
@@ -461,14 +571,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             menu.addItem(NSMenuItem.separator())
             menu.addItem(disabledItem("更新于 \(relativeTime(snapshot.timestamp))"))
-            menu.addItem(disabledItem("已同步到 iCloud"))
-            menu.addItem(disabledItem(snapshotServer.localURLString))
+            menu.addItem(disabledItem("数据源：\(SnapshotProvider.sourceLabel)"))
+            if sourceUnavailable && SnapshotProvider.isAuthorityHost == false {
+                menu.addItem(disabledItem("Mac mini 暂时不可达，显示上次数据"))
+            }
+            if SnapshotProvider.isAuthorityHost {
+                menu.addItem(disabledItem("已同步到 iCloud"))
+                menu.addItem(disabledItem(snapshotServer.localURLString))
+            } else {
+                menu.addItem(disabledItem(SnapshotProvider.remoteSnapshotURL.absoluteString))
+            }
             if let plan = snapshot.planType {
                 menu.addItem(disabledItem("计划：\(plan)"))
             }
         } else {
-            menu.addItem(disabledItem("还没有找到 Codex 用量记录"))
-            menu.addItem(disabledItem("发起一次 Codex 对话后会自动出现"))
+            if SnapshotProvider.isAuthorityHost {
+                menu.addItem(disabledItem("还没有找到 Codex 用量记录"))
+                menu.addItem(disabledItem("发起一次 Codex 对话后会自动出现"))
+            } else {
+                menu.addItem(disabledItem("无法连接 Mac mini 数据源"))
+                menu.addItem(disabledItem(SnapshotProvider.remoteSnapshotURL.absoluteString))
+            }
         }
 
         menu.addItem(NSMenuItem.separator())
@@ -822,8 +945,8 @@ private func relativeTime(_ date: Date) -> String {
 }
 
 private func printSnapshotJSON() {
-    guard let snapshot = UsageReader.latestSnapshot() else {
-        print("{\"ok\":false,\"error\":\"No Codex rate_limits found\"}")
+    guard let snapshot = SnapshotProvider.latestSnapshot() else {
+        print("{\"ok\":false,\"error\":\"No Codex usage snapshot found\"}")
         return
     }
     let encoder = JSONEncoder()
