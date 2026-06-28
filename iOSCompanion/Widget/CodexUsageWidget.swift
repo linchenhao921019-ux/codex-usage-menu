@@ -27,56 +27,156 @@ struct CodexUsageProvider: TimelineProvider {
 }
 
 struct CodexUsageWidgetView: View {
+    @Environment(\.widgetFamily) private var widgetFamily
+
     var entry: CodexUsageEntry
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Codex")
-                    .font(.headline)
-                Spacer()
-                if entry.snapshot?.isStale == true {
-                    Image(systemName: "clock.badge.exclamationmark")
-                        .foregroundStyle(.orange)
-                }
+        Group {
+            if widgetFamily == .accessoryRectangular {
+                compactBody
+            } else {
+                standardBody
             }
+        }
+        .containerBackground(.background, for: .widget)
+    }
 
+    private var standardBody: some View {
+        VStack(alignment: .leading, spacing: 12) {
             if let snapshot = entry.snapshot {
-                UsageLine(label: "5h", window: snapshot.primary)
-                UsageLine(label: "7d", window: snapshot.secondary)
-                Text(snapshot.exportedAt, style: .relative)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Text("Codex")
+                        .font(.headline.weight(.semibold))
+                    Spacer()
+                    if snapshot.isStale {
+                        Image(systemName: "clock.badge.exclamationmark")
+                            .foregroundStyle(.orange)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    UsageLine(label: "5h", window: snapshot.primary, scale: .standard)
+                    UsageLine(label: "7d", window: snapshot.secondary, scale: .standard)
+                }
             } else {
                 Spacer()
                 Text("等待 Mac")
-                    .font(.caption)
+                    .font(.headline)
                     .foregroundStyle(.secondary)
                 Spacer()
             }
         }
         .padding()
-        .containerBackground(.background, for: .widget)
+    }
+
+    private var compactBody: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let snapshot = entry.snapshot {
+                UsageLine(label: "5h", window: snapshot.primary, scale: .compact)
+                UsageLine(label: "7d", window: snapshot.secondary, scale: .compact)
+            } else {
+                Spacer()
+                Text("等待 Mac")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 
 struct UsageLine: View {
+    enum Scale {
+        case standard
+        case compact
+
+        var labelFont: Font {
+            switch self {
+            case .standard:
+                return .title3.weight(.semibold)
+            case .compact:
+                return .headline.weight(.semibold)
+            }
+        }
+
+        var percentFont: Font {
+            switch self {
+            case .standard:
+                return .title2.monospacedDigit().weight(.semibold)
+            case .compact:
+                return .headline.monospacedDigit().weight(.semibold)
+            }
+        }
+
+        var labelWidth: CGFloat {
+            switch self {
+            case .standard:
+                return 34
+            case .compact:
+                return 28
+            }
+        }
+
+        var percentWidth: CGFloat {
+            switch self {
+            case .standard:
+                return 54
+            case .compact:
+                return 46
+            }
+        }
+
+        var barHeight: CGFloat {
+            switch self {
+            case .standard:
+                return 8
+            case .compact:
+                return 6
+            }
+        }
+    }
+
     let label: String
     let window: CodexUsageWindow?
+    let scale: Scale
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Text(label)
-                .font(.caption.weight(.medium))
-                .frame(width: 24, alignment: .leading)
+                .font(scale.labelFont)
+                .minimumScaleFactor(0.75)
+                .lineLimit(1)
+                .frame(width: scale.labelWidth, alignment: .leading)
 
-            ProgressView(value: Double(window?.remainingPercent ?? 0), total: 100)
-                .tint(color(for: window?.remainingPercent ?? 0))
+            UsageBar(value: window?.remainingPercent ?? 0, height: scale.barHeight)
 
             Text(window.map { "\($0.remainingPercent)%" } ?? "--")
-                .font(.caption.monospacedDigit())
-                .frame(width: 36, alignment: .trailing)
+                .font(scale.percentFont)
+                .minimumScaleFactor(0.75)
+                .lineLimit(1)
+                .frame(width: scale.percentWidth, alignment: .trailing)
         }
+    }
+}
+
+struct UsageBar: View {
+    let value: Int
+    let height: CGFloat
+
+    var body: some View {
+        GeometryReader { proxy in
+            let progress = max(0, min(CGFloat(value) / 100, 1))
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(.secondary.opacity(0.18))
+                Capsule()
+                    .fill(color(for: value))
+                    .frame(width: max(height, proxy.size.width * progress))
+            }
+        }
+        .frame(height: height)
     }
 
     private func color(for remainingPercent: Int) -> Color {
