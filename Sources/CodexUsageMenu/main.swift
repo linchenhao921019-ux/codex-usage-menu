@@ -113,7 +113,7 @@ enum RefreshSettings {
     static var interval: TimeInterval {
         guard let rawValue = ProcessInfo.processInfo.environment["CODEX_USAGE_REFRESH_SECONDS"],
               let value = TimeInterval(rawValue) else {
-            return 5
+            return 60
         }
         return min(300, max(2, value))
     }

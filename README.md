@@ -56,7 +56,7 @@ Mac mini 会扫描：
 
 并读取最新的 `payload.rate_limits`。Codex 只有在产生过带用量信息的事件后，本工具才会显示真实百分比。
 
-菜单栏默认每 5 秒刷新一次；点击菜单里的“刷新”会立即重新读取最新日志。
+菜单栏默认每 60 秒刷新一次；点击菜单里的“刷新”会立即重新读取最新日志。
 
 可选环境变量：
 
@@ -64,7 +64,7 @@ Mac mini 会扫描：
 CODEX_USAGE_AUTHORITY_HOST=Mac-mini
 CODEX_USAGE_SNAPSHOT_URL=http://Mac-mini.local:8765/snapshot
 CODEX_USAGE_DISABLE_LOCAL_FALLBACK=1
-CODEX_USAGE_REFRESH_SECONDS=5
+CODEX_USAGE_REFRESH_SECONDS=60
 ```
 
 `CODEX_USAGE_DISABLE_LOCAL_FALLBACK=1` 只建议调试使用；正常使用时不要开启，否则外出时 MacBook Air 无法切到本机备用。
