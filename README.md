@@ -30,6 +30,8 @@ chmod +x scripts/install-launch-agent.sh
 ./scripts/install-launch-agent.sh
 ```
 
+安装后会在登录时自动启动；如果从菜单里点击“退出”，系统不会自动拉起，需要重新登录或再次运行安装脚本才会启动。
+
 ## 字体
 
 小组件会优先使用 Google Sans Code。未安装时会自动回退到系统等宽数字字体。

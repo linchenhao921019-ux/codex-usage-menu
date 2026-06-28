@@ -15,6 +15,8 @@ mkdir -p "$HOME/Library/LaunchAgents"
 mkdir -p "$INSTALL_DIR"
 cp "$BINARY" "$INSTALL_BINARY"
 chmod +x "$INSTALL_BINARY"
+codesign --force --sign - "$INSTALL_BINARY" >/dev/null
+xattr -d com.apple.provenance "$INSTALL_BINARY" 2>/dev/null || true
 
 cat > "$PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -28,8 +30,6 @@ cat > "$PLIST" <<PLIST
     <string>$INSTALL_BINARY</string>
   </array>
   <key>RunAtLoad</key>
-  <true/>
-  <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
   <string>$HOME/Library/Logs/codex-usage-menu.log</string>
