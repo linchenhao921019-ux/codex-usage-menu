@@ -21,6 +21,8 @@ struct CodexUsageSnapshot: Codable, Hashable {
 enum CodexUsageSnapshotStore {
     static let snapshotURLs = [
         URL(string: "http://Mac-mini.local:8765/snapshot")!,
+        URL(string: "http://10.241.1.21:8765/snapshot")!,
+        URL(string: "http://10.241.1.186:8765/snapshot")!,
         URL(string: "http://MacBook-Air.local:8765/snapshot")!,
         URL(string: "http://MacBookAir.local:8765/snapshot")!
     ]

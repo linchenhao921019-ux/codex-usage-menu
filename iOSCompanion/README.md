@@ -21,11 +21,13 @@ The current prototype reads these Mac endpoints in order:
 
 ```text
 http://Mac-mini.local:8765/snapshot
+http://10.241.1.21:8765/snapshot
+http://10.241.1.186:8765/snapshot
 http://MacBook-Air.local:8765/snapshot
 http://MacBookAir.local:8765/snapshot
 ```
 
-When the iPhone is on the same Wi-Fi as Mac mini, it uses Mac mini first. When Mac mini is unreachable but the iPhone is on the same network as MacBook Air, it falls back to the MacBook Air snapshot. If the MacBook Air hostname is different, update `snapshotURLs` in `Shared/CodexUsageSnapshot.swift`.
+When the iPhone is on the same Wi-Fi as Mac mini, it uses Mac mini first. The local IP fallbacks help when `.local` hostname resolution fails. When Mac mini is unreachable but the iPhone is on the same network as MacBook Air, it falls back to the MacBook Air snapshot. If the MacBook Air hostname is different, update `snapshotURLs` in `Shared/CodexUsageSnapshot.swift`.
 
 ## Battery Behavior
 
