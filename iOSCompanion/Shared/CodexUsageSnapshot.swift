@@ -19,19 +19,49 @@ struct CodexUsageSnapshot: Codable, Hashable {
 }
 
 enum CodexUsageSnapshotStore {
-    static let snapshotURL = URL(string: "http://Mac-mini.local:8765/snapshot")!
+    static let snapshotURLs = [
+        URL(string: "http://Mac-mini.local:8765/snapshot")!,
+        URL(string: "http://MacBook-Air.local:8765/snapshot")!,
+        URL(string: "http://MacBookAir.local:8765/snapshot")!
+    ]
+    static let snapshotURL = snapshotURLs[0]
+
+    private static let session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 2
+        configuration.timeoutIntervalForResource = 2
+        return URLSession(configuration: configuration)
+    }()
 
     static func load() -> CodexUsageSnapshot? {
-        load(from: snapshotURL)
+        for url in snapshotURLs {
+            if let snapshot = load(from: url) {
+                return snapshot
+            }
+        }
+        return nil
     }
 
     static func load(completion: @escaping (CodexUsageSnapshot?) -> Void) {
-        URLSession.shared.dataTask(with: snapshotURL) { data, _, _ in
+        load(from: snapshotURLs, index: 0, completion: completion)
+    }
+
+    private static func load(from urls: [URL], index: Int, completion: @escaping (CodexUsageSnapshot?) -> Void) {
+        guard index < urls.count else {
+            completion(nil)
+            return
+        }
+
+        session.dataTask(with: urls[index]) { data, _, _ in
             guard let data else {
-                completion(nil)
+                load(from: urls, index: index + 1, completion: completion)
                 return
             }
-            completion(decode(data: data))
+            if let snapshot = decode(data: data) {
+                completion(snapshot)
+            } else {
+                load(from: urls, index: index + 1, completion: completion)
+            }
         }.resume()
     }
 

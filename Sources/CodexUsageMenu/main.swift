@@ -424,6 +424,29 @@ enum RemoteSnapshotReader {
     }
 }
 
+enum SnapshotDataSource {
+    case localAuthority
+    case remoteAuthority(URL)
+    case localFallback
+
+    var label: String {
+        switch self {
+        case .localAuthority:
+            return "Mac mini 本机"
+        case .remoteAuthority:
+            return "Mac mini 远程"
+        case .localFallback:
+            return "本机备用"
+        }
+    }
+}
+
+struct SnapshotProviderResult {
+    let snapshot: UsageSnapshot
+    let dataSource: SnapshotDataSource
+    let remoteUnavailable: Bool
+}
+
 enum SnapshotProvider {
     static var authorityHost: String {
         nonEmptyEnvironmentValue("CODEX_USAGE_AUTHORITY_HOST") ?? "Mac-mini"
@@ -443,7 +466,7 @@ enum SnapshotProvider {
     }
 
     static var allowsLocalFallback: Bool {
-        nonEmptyEnvironmentValue("CODEX_USAGE_ALLOW_LOCAL_FALLBACK") == "1"
+        nonEmptyEnvironmentValue("CODEX_USAGE_DISABLE_LOCAL_FALLBACK") != "1"
     }
 
     static var sourceLabel: String {
@@ -458,16 +481,35 @@ enum SnapshotProvider {
     }
 
     static func latestSnapshot() -> UsageSnapshot? {
+        latestSnapshotResult()?.snapshot
+    }
+
+    static func latestSnapshotResult() -> SnapshotProviderResult? {
         if isAuthorityHost {
-            return UsageReader.latestSnapshot()
+            guard let snapshot = UsageReader.latestSnapshot() else {
+                return nil
+            }
+            return SnapshotProviderResult(
+                snapshot: snapshot,
+                dataSource: .localAuthority,
+                remoteUnavailable: false
+            )
         }
 
         if let snapshot = RemoteSnapshotReader.latestSnapshot(from: remoteSnapshotURL) {
-            return snapshot
+            return SnapshotProviderResult(
+                snapshot: snapshot,
+                dataSource: .remoteAuthority(remoteSnapshotURL),
+                remoteUnavailable: false
+            )
         }
 
-        if allowsLocalFallback {
-            return UsageReader.latestSnapshot()
+        if allowsLocalFallback, let snapshot = UsageReader.latestSnapshot() {
+            return SnapshotProviderResult(
+                snapshot: snapshot,
+                dataSource: .localFallback,
+                remoteUnavailable: true
+            )
         }
         return nil
     }
@@ -502,6 +544,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let snapshotServer = SnapshotHTTPServer()
     private var timer: Timer?
     private var snapshot: UsageSnapshot?
+    private var dataSource: SnapshotDataSource?
     private var sourceUnavailable = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -539,12 +582,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func refresh() {
-        let latestSnapshot = SnapshotProvider.latestSnapshot()
-        sourceUnavailable = latestSnapshot == nil
-        if let latestSnapshot {
-            snapshot = latestSnapshot
+        let result = SnapshotProvider.latestSnapshotResult()
+        sourceUnavailable = result == nil || result?.remoteUnavailable == true
+        if let result {
+            snapshot = result.snapshot
+            dataSource = result.dataSource
         } else if SnapshotProvider.isAuthorityHost {
             snapshot = nil
+            dataSource = nil
         }
 
         if let snapshot, SnapshotProvider.isAuthorityHost {
@@ -571,15 +616,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             menu.addItem(NSMenuItem.separator())
             menu.addItem(disabledItem("更新于 \(relativeTime(snapshot.timestamp))"))
-            menu.addItem(disabledItem("数据源：\(SnapshotProvider.sourceLabel)"))
+            menu.addItem(disabledItem("数据源：\(dataSource?.label ?? SnapshotProvider.sourceLabel)"))
             if sourceUnavailable && SnapshotProvider.isAuthorityHost == false {
-                menu.addItem(disabledItem("Mac mini 暂时不可达，显示上次数据"))
+                if case .localFallback? = dataSource {
+                    menu.addItem(disabledItem("Mac mini 不可达，已切到本机备用"))
+                } else {
+                    menu.addItem(disabledItem("Mac mini 暂时不可达，显示上次数据"))
+                }
             }
             if SnapshotProvider.isAuthorityHost {
                 menu.addItem(disabledItem("已同步到 iCloud"))
                 menu.addItem(disabledItem(snapshotServer.localURLString))
             } else {
-                menu.addItem(disabledItem(SnapshotProvider.remoteSnapshotURL.absoluteString))
+                if case .localFallback? = dataSource {
+                    menu.addItem(disabledItem(snapshotServer.localURLString))
+                } else {
+                    menu.addItem(disabledItem(SnapshotProvider.remoteSnapshotURL.absoluteString))
+                }
             }
             if let plan = snapshot.planType {
                 menu.addItem(disabledItem("计划：\(plan)"))

@@ -17,13 +17,15 @@ The project includes:
 - `Widget/CodexUsageWidget.swift` and `Widget/CodexUsageWidgetBundle.swift` to the Widget Extension target
 - `App/Assets.xcassets` with the app icon
 
-The current prototype reads this Mac endpoint:
+The current prototype reads these Mac endpoints in order:
 
 ```text
 http://Mac-mini.local:8765/snapshot
+http://MacBook-Air.local:8765/snapshot
+http://MacBookAir.local:8765/snapshot
 ```
 
-If the Mac hostname changes, update `snapshotURL` in `Shared/CodexUsageSnapshot.swift`.
+When the iPhone is on the same Wi-Fi as Mac mini, it uses Mac mini first. When Mac mini is unreachable but the iPhone is on the same network as MacBook Air, it falls back to the MacBook Air snapshot. If the MacBook Air hostname is different, update `snapshotURLs` in `Shared/CodexUsageSnapshot.swift`.
 
 ## Battery Behavior
 

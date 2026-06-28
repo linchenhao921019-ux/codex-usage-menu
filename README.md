@@ -40,11 +40,12 @@ brew install --cask font-google-sans-code
 
 ## 数据来源
 
-默认以 Mac mini 作为唯一权威数据源：
+默认以 Mac mini 作为优先权威数据源，并允许外出时切到本机备用：
 
 - 在 `Mac-mini` 上运行时，工具会扫描本机 Codex 日志并对外提供快照。
-- 在其他 Mac 上运行时，工具默认读取 `http://Mac-mini.local:8765/snapshot`，不再读取自己的本机 Codex 日志。
-- 如果 Mac mini 暂时不可达，其他 Mac 会保留最后一次成功读取的数据；首次启动且无法连接时会显示未连接。
+- 在其他 Mac 上运行时，工具默认优先读取 `http://Mac-mini.local:8765/snapshot`。
+- 如果 Mac mini 暂时不可达，其他 Mac 会自动读取自己的本机 Codex 日志，并继续在 `8765` 端口提供快照给 iPhone。
+- 回到 Mac mini 所在网络后，其他 Mac 会自动恢复为读取 Mac mini 数据。
 
 Mac mini 会扫描：
 
@@ -58,24 +59,28 @@ Mac mini 会扫描：
 ```bash
 CODEX_USAGE_AUTHORITY_HOST=Mac-mini
 CODEX_USAGE_SNAPSHOT_URL=http://Mac-mini.local:8765/snapshot
-CODEX_USAGE_ALLOW_LOCAL_FALLBACK=1
+CODEX_USAGE_DISABLE_LOCAL_FALLBACK=1
 ```
 
-`CODEX_USAGE_ALLOW_LOCAL_FALLBACK=1` 只建议调试使用；正常使用时不要开启，避免不同设备显示不同额度。
+`CODEX_USAGE_DISABLE_LOCAL_FALLBACK=1` 只建议调试使用；正常使用时不要开启，否则外出时 MacBook Air 无法切到本机备用。
 
 ## iOS 小组件原型
 
-Mac mini 启动后会在 `8765` 端口提供一份不含本地会话路径的轻量 JSON 快照，供同一 Wi-Fi 下的 iOS App、Widget 和其他 Mac 读取：
+Mac 端启动后会在 `8765` 端口提供一份不含本地会话路径的轻量 JSON 快照，供同一 Wi-Fi 下的 iOS App、Widget 和其他 Mac 读取：
 
 - 局域网接口：`http://<Mac 主机名>.local:8765/snapshot`
 - 本机调试：`http://127.0.0.1:8765/snapshot`
 - iOS 源码：`iOSCompanion/`
 
-当前 iOS 原型默认读取：
+当前 iOS 原型默认按顺序读取：
 
 ```text
 http://Mac-mini.local:8765/snapshot
+http://MacBook-Air.local:8765/snapshot
+http://MacBookAir.local:8765/snapshot
 ```
+
+也就是说：在家时 iPhone 优先读 Mac mini；外出时，如果 iPhone 和 MacBook Air 在同一网络里，iPhone 会读 MacBook Air 提供的本机备用数据。
 
 Widget 使用 30 分钟 timeline 请求，实际刷新由 iOS 调度；Mac 关机或不在同一网络时会继续显示最后一次成功读取的数据，并在超过 1 小时后标记为旧数据。
 
