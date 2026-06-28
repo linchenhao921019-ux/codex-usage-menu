@@ -20,7 +20,7 @@ struct CodexUsageProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<CodexUsageEntry>) -> Void) {
         CodexUsageSnapshotStore.load { snapshot in
             let entry = CodexUsageEntry(date: Date(), snapshot: snapshot)
-            let nextRefresh = Calendar.current.date(byAdding: .minute, value: 15, to: Date()) ?? Date().addingTimeInterval(900)
+            let nextRefresh = Calendar.current.date(byAdding: .minute, value: 1, to: Date()) ?? Date().addingTimeInterval(60)
             completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
         }
     }

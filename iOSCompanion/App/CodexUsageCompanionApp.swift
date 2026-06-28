@@ -1,4 +1,5 @@
 import SwiftUI
+import WidgetKit
 
 @main
 struct CodexUsageCompanionApp: App {
@@ -10,6 +11,7 @@ struct CodexUsageCompanionApp: App {
 }
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var snapshot: CodexUsageSnapshot?
 
     var body: some View {
@@ -36,6 +38,14 @@ struct ContentView: View {
             .task {
                 refresh()
             }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    refresh()
+                }
+            }
+            .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
+                refresh()
+            }
             .toolbar {
                 Button {
                     refresh()
@@ -49,7 +59,10 @@ struct ContentView: View {
     private func refresh() {
         CodexUsageSnapshotStore.load { value in
             DispatchQueue.main.async {
-                snapshot = value
+                if snapshot != value {
+                    snapshot = value
+                    WidgetCenter.shared.reloadAllTimelines()
+                }
             }
         }
     }
