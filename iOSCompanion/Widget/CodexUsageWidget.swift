@@ -131,9 +131,18 @@ struct UsageLine: View {
         var barHeight: CGFloat {
             switch self {
             case .standard:
-                return 8
+                return 10
             case .compact:
-                return 6
+                return 8
+            }
+        }
+
+        var barWidth: CGFloat {
+            switch self {
+            case .standard:
+                return 42
+            case .compact:
+                return 34
             }
         }
     }
@@ -150,7 +159,7 @@ struct UsageLine: View {
                 .lineLimit(1)
                 .frame(width: scale.labelWidth, alignment: .leading)
 
-            UsageBar(value: window?.remainingPercent ?? 0, height: scale.barHeight)
+            SegmentedUsageBar(value: window?.remainingPercent ?? 0, width: scale.barWidth, height: scale.barHeight)
 
             Text(window.map { "\($0.remainingPercent)%" } ?? "--")
                 .font(scale.percentFont)
@@ -161,22 +170,25 @@ struct UsageLine: View {
     }
 }
 
-struct UsageBar: View {
+struct SegmentedUsageBar: View {
+    private let segmentCount = 5
+
     let value: Int
+    let width: CGFloat
     let height: CGFloat
 
     var body: some View {
-        GeometryReader { proxy in
-            let progress = max(0, min(CGFloat(value) / 100, 1))
-            ZStack(alignment: .leading) {
+        HStack(spacing: 3) {
+            ForEach(0..<segmentCount, id: \.self) { index in
                 Capsule()
-                    .fill(.secondary.opacity(0.18))
-                Capsule()
-                    .fill(color(for: value))
-                    .frame(width: max(height, proxy.size.width * progress))
+                    .fill(index < activeCount ? color(for: value) : .secondary.opacity(0.22))
             }
         }
-        .frame(height: height)
+        .frame(width: width, height: height)
+    }
+
+    private var activeCount: Int {
+        max(0, min(segmentCount, Int((Double(value) / 20.0).rounded())))
     }
 
     private func color(for remainingPercent: Int) -> Color {
