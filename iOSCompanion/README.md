@@ -20,7 +20,7 @@ The project includes:
 The current prototype reads this Mac endpoint:
 
 ```text
-http://linchenhaodeMacBook-Air.local:8765/snapshot
+http://Mac-mini.local:8765/snapshot
 ```
 
 If the Mac hostname changes, update `snapshotURL` in `Shared/CodexUsageSnapshot.swift`.

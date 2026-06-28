@@ -19,7 +19,7 @@ struct CodexUsageSnapshot: Codable, Hashable {
 }
 
 enum CodexUsageSnapshotStore {
-    static let snapshotURL = URL(string: "http://linchenhaodeMacBook-Air.local:8765/snapshot")!
+    static let snapshotURL = URL(string: "http://Mac-mini.local:8765/snapshot")!
 
     static func load() -> CodexUsageSnapshot? {
         load(from: snapshotURL)
