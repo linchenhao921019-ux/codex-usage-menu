@@ -25,9 +25,9 @@ struct CodexUsageLoadResult: Hashable {
 
 enum CodexUsageSnapshotStore {
     static let snapshotURLs = [
-        URL(string: "http://Mac-mini.local:8765/snapshot")!,
         URL(string: "http://10.241.1.21:8765/snapshot")!,
         URL(string: "http://10.241.1.186:8765/snapshot")!,
+        URL(string: "http://Mac-mini.local:8765/snapshot")!,
         URL(string: "http://MacBook-Air.local:8765/snapshot")!,
         URL(string: "http://MacBookAir.local:8765/snapshot")!
     ]
@@ -35,8 +35,10 @@ enum CodexUsageSnapshotStore {
 
     private static let session: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 2
-        configuration.timeoutIntervalForResource = 2
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.timeoutIntervalForRequest = 8
+        configuration.timeoutIntervalForResource = 8
+        configuration.waitsForConnectivity = false
         return URLSession(configuration: configuration)
     }()
 
@@ -71,7 +73,11 @@ enum CodexUsageSnapshotStore {
         }
 
         let url = urls[index]
-        session.dataTask(with: url) { data, response, error in
+        var request = URLRequest(url: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 8
+
+        session.dataTask(with: request) { data, response, error in
             var failures = failures
             if let error {
                 failures.append("\(url.host ?? url.absoluteString): \(error.localizedDescription)")
