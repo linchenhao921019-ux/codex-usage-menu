@@ -109,6 +109,21 @@ extension UsageSnapshot {
     }
 }
 
+enum RefreshSettings {
+    static var interval: TimeInterval {
+        guard let rawValue = ProcessInfo.processInfo.environment["CODEX_USAGE_REFRESH_SECONDS"],
+              let value = TimeInterval(rawValue) else {
+            return 5
+        }
+        return min(300, max(2, value))
+    }
+
+    static var intervalLabel: String {
+        let seconds = Int(interval.rounded())
+        return "\(seconds) 秒"
+    }
+}
+
 enum UsageSyncExporter {
     static let relativeSnapshotPath = "CodexUsage/codex-usage-snapshot.json"
 
@@ -317,6 +332,7 @@ enum UsageReader {
                 return (url, modified)
             }
             .sorted { $0.1 > $1.1 }
+            .prefix(30)
 
         var best: UsageSnapshot?
         for (url, _) in files {
@@ -356,8 +372,7 @@ enum UsageReader {
         for line in lines where line.contains("\"rate_limits\"") {
             guard let lineData = String(line).data(using: .utf8),
                   let object = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any],
-                  let payload = object["payload"] as? [String: Any],
-                  let rateLimits = payload["rate_limits"] as? [String: Any],
+                  let rateLimits = rateLimits(in: object),
                   let timestamp = parseTimestamp(object["timestamp"]) else {
                 continue
             }
@@ -375,6 +390,17 @@ enum UsageReader {
                 primary: primary,
                 secondary: secondary
             )
+        }
+        return nil
+    }
+
+    private static func rateLimits(in object: [String: Any]) -> [String: Any]? {
+        if let rateLimits = object["rate_limits"] as? [String: Any] {
+            return rateLimits
+        }
+        if let payload = object["payload"] as? [String: Any],
+           let rateLimits = payload["rate_limits"] as? [String: Any] {
+            return rateLimits
         }
         return nil
     }
@@ -552,7 +578,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configureStatusItem()
         snapshotServer.start()
         refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: RefreshSettings.interval, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.refresh()
             }
@@ -581,7 +607,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ])
     }
 
-    @objc private func refresh() {
+    @objc private func refreshNow() {
+        refresh()
+        statusView.needsDisplay = true
+        statusItem.button?.needsDisplay = true
+    }
+
+    private func refresh() {
         let result = SnapshotProvider.latestSnapshotResult()
         sourceUnavailable = result == nil || result?.remoteUnavailable == true
         if let result {
@@ -616,6 +648,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             menu.addItem(NSMenuItem.separator())
             menu.addItem(disabledItem("更新于 \(relativeTime(snapshot.timestamp))"))
+            menu.addItem(disabledItem("自动刷新：\(RefreshSettings.intervalLabel)"))
             menu.addItem(disabledItem("数据源：\(dataSource?.label ?? SnapshotProvider.sourceLabel)"))
             if sourceUnavailable && SnapshotProvider.isAuthorityHost == false {
                 if case .localFallback? = dataSource {
@@ -648,7 +681,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(actionItem("刷新", selector: #selector(refresh)))
+        menu.addItem(actionItem("刷新", selector: #selector(refreshNow)))
         menu.addItem(actionItem("打开同步文件夹", selector: #selector(openSyncFolder)))
         menu.addItem(actionItem("打开 Codex", selector: #selector(openCodex)))
         menu.addItem(NSMenuItem.separator())
