@@ -13,6 +13,7 @@ struct CodexUsageCompanionApp: App {
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var snapshot: CodexUsageSnapshot?
+    @State private var syncMessage = "正在连接 Mac mini..."
 
     var body: some View {
         NavigationStack {
@@ -29,6 +30,10 @@ struct ContentView: View {
                         systemImage: "wifi",
                         description: Text("确认 iPhone 和 Mac 在同一个 Wi-Fi，并保持 Mac 菜单栏小组件运行。")
                     )
+                    Text(syncMessage)
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
                 }
 
                 Spacer()
@@ -57,10 +62,12 @@ struct ContentView: View {
     }
 
     private func refresh() {
-        CodexUsageSnapshotStore.load { value in
+        syncMessage = "正在连接 Mac mini..."
+        CodexUsageSnapshotStore.loadWithDiagnostics { result in
             DispatchQueue.main.async {
-                if snapshot != value {
-                    snapshot = value
+                syncMessage = result.message.isEmpty ? "没有可用连接" : result.message
+                if snapshot != result.snapshot {
+                    snapshot = result.snapshot
                     WidgetCenter.shared.reloadAllTimelines()
                 }
             }

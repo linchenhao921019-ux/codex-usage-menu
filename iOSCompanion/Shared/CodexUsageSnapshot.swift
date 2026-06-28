@@ -18,6 +18,11 @@ struct CodexUsageSnapshot: Codable, Hashable {
     let secondary: CodexUsageWindow?
 }
 
+struct CodexUsageLoadResult: Hashable {
+    let snapshot: CodexUsageSnapshot?
+    let message: String
+}
+
 enum CodexUsageSnapshotStore {
     static let snapshotURLs = [
         URL(string: "http://Mac-mini.local:8765/snapshot")!,
@@ -45,24 +50,45 @@ enum CodexUsageSnapshotStore {
     }
 
     static func load(completion: @escaping (CodexUsageSnapshot?) -> Void) {
-        load(from: snapshotURLs, index: 0, completion: completion)
+        loadWithDiagnostics { result in
+            completion(result.snapshot)
+        }
     }
 
-    private static func load(from urls: [URL], index: Int, completion: @escaping (CodexUsageSnapshot?) -> Void) {
+    static func loadWithDiagnostics(completion: @escaping (CodexUsageLoadResult) -> Void) {
+        load(from: snapshotURLs, index: 0, failures: [], completion: completion)
+    }
+
+    private static func load(
+        from urls: [URL],
+        index: Int,
+        failures: [String],
+        completion: @escaping (CodexUsageLoadResult) -> Void
+    ) {
         guard index < urls.count else {
-            completion(nil)
+            completion(CodexUsageLoadResult(snapshot: nil, message: failures.joined(separator: "\n")))
             return
         }
 
-        session.dataTask(with: urls[index]) { data, _, _ in
+        let url = urls[index]
+        session.dataTask(with: url) { data, response, error in
+            var failures = failures
+            if let error {
+                failures.append("\(url.host ?? url.absoluteString): \(error.localizedDescription)")
+                load(from: urls, index: index + 1, failures: failures, completion: completion)
+                return
+            }
             guard let data else {
-                load(from: urls, index: index + 1, completion: completion)
+                failures.append("\(url.host ?? url.absoluteString): 没有返回数据")
+                load(from: urls, index: index + 1, failures: failures, completion: completion)
                 return
             }
             if let snapshot = decode(data: data) {
-                completion(snapshot)
+                completion(CodexUsageLoadResult(snapshot: snapshot, message: "已连接：\(url.host ?? url.absoluteString)"))
             } else {
-                load(from: urls, index: index + 1, completion: completion)
+                let statusCode = (response as? HTTPURLResponse).map { String($0.statusCode) } ?? "unknown"
+                failures.append("\(url.host ?? url.absoluteString): JSON 解析失败，HTTP \(statusCode)")
+                load(from: urls, index: index + 1, failures: failures, completion: completion)
             }
         }.resume()
     }
