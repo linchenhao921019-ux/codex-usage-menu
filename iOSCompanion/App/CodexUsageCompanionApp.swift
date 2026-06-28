@@ -1,5 +1,25 @@
 import SwiftUI
+import Network
 import WidgetKit
+
+@MainActor
+final class LocalNetworkPermissionPrompter {
+    static let shared = LocalNetworkPermissionPrompter()
+    private var browser: NWBrowser?
+
+    func request() {
+        guard browser == nil else {
+            return
+        }
+        let parameters = NWParameters.tcp
+        parameters.includePeerToPeer = true
+        let browser = NWBrowser(for: .bonjour(type: "_http._tcp", domain: nil), using: parameters)
+        browser.stateUpdateHandler = { _ in }
+        browser.browseResultsChangedHandler = { _, _ in }
+        browser.start(queue: .main)
+        self.browser = browser
+    }
+}
 
 @main
 struct CodexUsageCompanionApp: App {
@@ -41,10 +61,12 @@ struct ContentView: View {
             .padding()
             .navigationTitle("Codex 用量")
             .task {
+                LocalNetworkPermissionPrompter.shared.request()
                 refresh()
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
+                    LocalNetworkPermissionPrompter.shared.request()
                     refresh()
                 }
             }
