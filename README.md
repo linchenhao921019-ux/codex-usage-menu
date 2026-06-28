@@ -7,7 +7,9 @@
 
 ## 安装 macOS App
 
-推荐安装成正式 macOS 菜单栏 App：
+### 从源码安装
+
+适合从 GitHub 克隆项目，或在本机继续开发：
 
 ```bash
 chmod +x scripts/*.sh
@@ -27,6 +29,25 @@ chmod +x scripts/*.sh
 ```
 
 这个 App 使用和 iOS App 相同的图标。双击 App 会在菜单栏显示用量；登录后也会自动启动。菜单里点击“退出”后，系统不会自动拉起，需要重新打开 App 或重新登录。
+
+### 生成给别人安装的 zip
+
+适合放到 Google Drive 或 GitHub Release 里分享：
+
+```bash
+chmod +x scripts/*.sh
+./scripts/package-macos-release.sh
+```
+
+生成文件：
+
+```text
+dist/CodexUsageMenu-macOS-universal.zip
+```
+
+朋友解压后双击 `install.command` 即可安装。当前 zip 是 universal 版本，Apple Silicon 和 Intel Mac 都可以使用。
+
+注意：这个 App 没有上架和 notarize。如果 macOS 阻止打开，请右键 `install.command` 或 App，选择“打开”。朋友的 Mac 也需要已经使用过 Codex，并存在 `~/.codex/sessions` 记录，才会显示真实用量。
 
 ## 调试运行
 

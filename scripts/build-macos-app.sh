@@ -11,10 +11,18 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 ICON_SOURCE="$ROOT_DIR/iOSCompanion/App/Assets.xcassets/AppIcon.appiconset/Icon-1024.png"
 ICONSET_DIR="$APP_BUILD_DIR/AppIcon.iconset"
+BUILD_ARGS=(-c release --build-path "$BUILD_PATH")
+
+if [[ -n "${CODEX_USAGE_ARCHS:-}" ]]; then
+  read -r -a ARCHS <<< "$CODEX_USAGE_ARCHS"
+  for arch in "${ARCHS[@]}"; do
+    BUILD_ARGS+=(--arch "$arch")
+  done
+fi
 
 cd "$ROOT_DIR"
-swift build -c release --build-path "$BUILD_PATH" >&2
-BINARY="$(swift build -c release --build-path "$BUILD_PATH" --show-bin-path)/codex-usage-menu"
+swift build "${BUILD_ARGS[@]}" >&2
+BINARY="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)/codex-usage-menu"
 
 rm -rf "$APP_PATH" "$ICONSET_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$ICONSET_DIR"
