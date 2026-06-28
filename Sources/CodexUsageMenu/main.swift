@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import Network
 
 struct UsageWindow: Codable {
     let usedPercent: Double
@@ -50,6 +51,199 @@ struct UsageSnapshot: Codable {
     let planType: String?
     let primary: UsageWindow?
     let secondary: UsageWindow?
+}
+
+struct SyncUsageWindow: Codable {
+    let label: String
+    let compactLabel: String
+    let usedPercent: Double
+    let remainingPercent: Int
+    let windowMinutes: Int
+    let resetsAt: Date?
+}
+
+struct SyncUsageSnapshot: Codable {
+    let schemaVersion: Int
+    let exportedAt: Date
+    let snapshotTimestamp: Date
+    let planType: String?
+    let primary: SyncUsageWindow?
+    let secondary: SyncUsageWindow?
+
+    init(snapshot: UsageSnapshot, exportedAt: Date = Date()) {
+        schemaVersion = 1
+        self.exportedAt = exportedAt
+        snapshotTimestamp = snapshot.timestamp
+        planType = snapshot.planType
+        primary = snapshot.primary.map(SyncUsageWindow.init)
+        secondary = snapshot.secondary.map(SyncUsageWindow.init)
+    }
+}
+
+extension SyncUsageWindow {
+    init(window: UsageWindow) {
+        label = window.label
+        compactLabel = window.compactLabel
+        usedPercent = window.usedPercent
+        remainingPercent = window.remainingPercent
+        windowMinutes = window.windowMinutes
+        resetsAt = window.resetsAt
+    }
+}
+
+enum UsageSyncExporter {
+    static let relativeSnapshotPath = "CodexUsage/codex-usage-snapshot.json"
+
+    static var visibleICloudURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs", isDirectory: true)
+            .appendingPathComponent(relativeSnapshotPath)
+    }
+
+    static var configuredContainerURL: URL? {
+        guard let containerID = ProcessInfo.processInfo.environment["CODEX_USAGE_ICLOUD_CONTAINER_ID"],
+              containerID.isEmpty == false else {
+            return nil
+        }
+        let folderName = containerID.replacingOccurrences(of: ".", with: "~")
+        return FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Mobile Documents", isDirectory: true)
+            .appendingPathComponent(folderName, isDirectory: true)
+            .appendingPathComponent("Documents", isDirectory: true)
+            .appendingPathComponent(relativeSnapshotPath)
+    }
+
+    static var customExportURL: URL? {
+        guard let path = ProcessInfo.processInfo.environment["CODEX_USAGE_EXPORT_PATH"],
+              path.isEmpty == false else {
+            return nil
+        }
+        return URL(fileURLWithPath: NSString(string: path).expandingTildeInPath)
+    }
+
+    static var displayURL: URL {
+        customExportURL ?? configuredContainerURL ?? visibleICloudURL
+    }
+
+    static func export(snapshot: UsageSnapshot) throws {
+        let payload = SyncUsageSnapshot(snapshot: snapshot)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(payload)
+
+        var destinations = [visibleICloudURL]
+        if let configuredContainerURL, configuredContainerURL != visibleICloudURL {
+            destinations.append(configuredContainerURL)
+        }
+        if let customExportURL, destinations.contains(customExportURL) == false {
+            destinations.append(customExportURL)
+        }
+
+        for url in destinations {
+            try write(data: data, to: url)
+        }
+    }
+
+    private static func write(data: Data, to url: URL) throws {
+        let directory = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let temporaryURL = directory.appendingPathComponent(".\(url.lastPathComponent).tmp")
+        try data.write(to: temporaryURL, options: .atomic)
+        if FileManager.default.fileExists(atPath: url.path) {
+            _ = try FileManager.default.replaceItemAt(url, withItemAt: temporaryURL)
+        } else {
+            try FileManager.default.moveItem(at: temporaryURL, to: url)
+        }
+    }
+}
+
+final class SnapshotHTTPServer: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "codex-usage-snapshot-http")
+    private var listener: NWListener?
+
+    var localURLString: String {
+        let host = Host.current().localizedName ?? "localhost"
+        return "http://\(host).local:8765/snapshot"
+    }
+
+    func start() {
+        guard listener == nil else {
+            return
+        }
+        do {
+            let listener = try NWListener(using: .tcp, on: 8765)
+            listener.newConnectionHandler = { [weak self] connection in
+                self?.handle(connection)
+            }
+            listener.start(queue: queue)
+            self.listener = listener
+        } catch {
+            fputs("Codex usage snapshot server failed: \(error)\n", stderr)
+        }
+    }
+
+    private func handle(_ connection: NWConnection) {
+        connection.start(queue: queue)
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { [weak self] data, _, _, _ in
+            guard let self else {
+                connection.cancel()
+                return
+            }
+            let request = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            let response = self.response(for: request)
+            connection.send(content: response, completion: .contentProcessed { _ in
+                connection.cancel()
+            })
+        }
+    }
+
+    private func response(for request: String) -> Data {
+        if request.hasPrefix("GET /snapshot ") || request.hasPrefix("GET /snapshot?") || request.hasPrefix("GET / ") {
+            return snapshotResponse()
+        }
+        return httpResponse(
+            status: "404 Not Found",
+            contentType: "application/json; charset=utf-8",
+            body: Data("{\"ok\":false,\"error\":\"Not found\"}".utf8)
+        )
+    }
+
+    private func snapshotResponse() -> Data {
+        guard let snapshot = UsageReader.latestSnapshot() else {
+            return httpResponse(
+                status: "404 Not Found",
+                contentType: "application/json; charset=utf-8",
+                body: Data("{\"ok\":false,\"error\":\"No Codex rate_limits found\"}".utf8)
+            )
+        }
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        do {
+            let body = try encoder.encode(SyncUsageSnapshot(snapshot: snapshot))
+            return httpResponse(status: "200 OK", contentType: "application/json; charset=utf-8", body: body)
+        } catch {
+            return httpResponse(
+                status: "500 Internal Server Error",
+                contentType: "application/json; charset=utf-8",
+                body: Data("{\"ok\":false,\"error\":\"Encode failed\"}".utf8)
+            )
+        }
+    }
+
+    private func httpResponse(status: String, contentType: String, body: Data) -> Data {
+        var response = Data()
+        response.append(Data("HTTP/1.1 \(status)\r\n".utf8))
+        response.append(Data("Content-Type: \(contentType)\r\n".utf8))
+        response.append(Data("Content-Length: \(body.count)\r\n".utf8))
+        response.append(Data("Cache-Control: no-store\r\n".utf8))
+        response.append(Data("Access-Control-Allow-Origin: *\r\n".utf8))
+        response.append(Data("Connection: close\r\n\r\n".utf8))
+        response.append(body)
+        return response
+    }
 }
 
 enum AppFont {
@@ -203,12 +397,14 @@ enum UsageReader {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let statusView = StatusBarUsageView()
+    private let snapshotServer = SnapshotHTTPServer()
     private var timer: Timer?
     private var snapshot: UsageSnapshot?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         configureStatusItem()
+        snapshotServer.start()
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -241,6 +437,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func refresh() {
         snapshot = UsageReader.latestSnapshot()
+        if let snapshot {
+            try? UsageSyncExporter.export(snapshot: snapshot)
+        }
         render()
     }
 
@@ -262,6 +461,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             menu.addItem(NSMenuItem.separator())
             menu.addItem(disabledItem("更新于 \(relativeTime(snapshot.timestamp))"))
+            menu.addItem(disabledItem("已同步到 iCloud"))
+            menu.addItem(disabledItem(snapshotServer.localURLString))
             if let plan = snapshot.planType {
                 menu.addItem(disabledItem("计划：\(plan)"))
             }
@@ -272,6 +473,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
         menu.addItem(actionItem("刷新", selector: #selector(refresh)))
+        menu.addItem(actionItem("打开同步文件夹", selector: #selector(openSyncFolder)))
         menu.addItem(actionItem("打开 Codex", selector: #selector(openCodex)))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(actionItem("退出", selector: #selector(quit)))
@@ -308,6 +510,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             at: URL(fileURLWithPath: "/Applications/Codex.app"),
             configuration: NSWorkspace.OpenConfiguration()
         )
+    }
+
+    @objc private func openSyncFolder() {
+        let folder = UsageSyncExporter.displayURL.deletingLastPathComponent()
+        NSWorkspace.shared.open(folder)
     }
 
     @objc private func quit() {
@@ -622,12 +829,15 @@ private func printSnapshotJSON() {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
     encoder.dateEncodingStrategy = .iso8601
-    if let data = try? encoder.encode(snapshot), let text = String(data: data, encoding: .utf8) {
+    let value: any Encodable = CommandLine.arguments.contains("--sync-json")
+        ? SyncUsageSnapshot(snapshot: snapshot)
+        : snapshot
+    if let data = try? encoder.encode(value), let text = String(data: data, encoding: .utf8) {
         print(text)
     }
 }
 
-if CommandLine.arguments.contains("--json") {
+if CommandLine.arguments.contains("--json") || CommandLine.arguments.contains("--sync-json") {
     printSnapshotJSON()
 } else {
     let app = NSApplication.shared

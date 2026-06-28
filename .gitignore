@@ -1,2 +1,5 @@
 .build/
 .DS_Store
+iOSCompanion/build/
+iOSCompanion/CodexUsageCompanion.xcodeproj/project.xcworkspace/xcuserdata/
+iOSCompanion/CodexUsageCompanion.xcodeproj/xcuserdata/
