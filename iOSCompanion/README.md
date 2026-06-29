@@ -23,12 +23,13 @@ The current prototype reads these Mac endpoints in order:
 http://Mac-mini.local:8765/snapshot
 http://10.241.1.21:8765/snapshot
 http://10.241.1.186:8765/snapshot
+http://linchenhaodeMacBook-Air.local:8765/snapshot
 http://MacBook-Air.local:8765/snapshot
 http://MacBookAir.local:8765/snapshot
 ```
 
-When the iPhone is on the same Wi-Fi as Mac mini, it uses Mac mini first. The local IP fallbacks help when `.local` hostname resolution fails. When Mac mini is unreachable but the iPhone is on the same network as MacBook Air, it falls back to the MacBook Air snapshot. If the MacBook Air hostname is different, update `snapshotURLs` in `Shared/CodexUsageSnapshot.swift`.
+When the iPhone is on the same Wi-Fi as Mac mini, it uses Mac mini first. The local IP fallbacks help when `.local` hostname resolution fails. When Mac mini is unreachable but the iPhone is on the same network as MacBook Air, it falls back to the MacBook Air snapshot. If the iPhone is away from both Mac mini and MacBook Air local networks, the local-network prototype cannot fetch live data. If the MacBook Air hostname is different, update `snapshotURLs` in `Shared/CodexUsageSnapshot.swift`.
 
 ## Battery Behavior
 
-The Widget uses a 30-minute timeline request. iOS may refresh less often depending on system policy. If the Mac is off or unreachable, the Widget keeps showing the last successful snapshot and marks data as stale after one hour.
+The Widget uses a 1-minute timeline request. iOS may refresh less often depending on system policy. If the Mac is off or unreachable, the Widget keeps showing the last successful snapshot and marks data as stale after one hour.

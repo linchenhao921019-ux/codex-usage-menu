@@ -437,10 +437,64 @@ enum UsageReader {
 }
 
 enum RemoteSnapshotReader {
+    private final class ResponseBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var data: Data?
+
+        func set(_ value: Data?) {
+            lock.lock()
+            data = value
+            lock.unlock()
+        }
+
+        func get() -> Data? {
+            lock.lock()
+            let value = data
+            lock.unlock()
+            return value
+        }
+    }
+
+    private static var timeout: TimeInterval {
+        guard let rawValue = ProcessInfo.processInfo.environment["CODEX_USAGE_REMOTE_TIMEOUT_SECONDS"],
+              let value = TimeInterval(rawValue) else {
+            return 1.5
+        }
+        return min(max(value, 0.5), 10)
+    }
+
     static func latestSnapshot(from url: URL) -> UsageSnapshot? {
-        guard let data = try? Data(contentsOf: url) else {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.timeoutIntervalForRequest = timeout
+        configuration.timeoutIntervalForResource = timeout
+        configuration.waitsForConnectivity = false
+
+        let session = URLSession(configuration: configuration)
+        var request = URLRequest(url: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = timeout
+
+        let semaphore = DispatchSemaphore(value: 0)
+        let responseBox = ResponseBox()
+        let task = session.dataTask(with: request) { data, _, _ in
+            responseBox.set(data)
+            semaphore.signal()
+        }
+        task.resume()
+
+        let waitResult = semaphore.wait(timeout: .now() + timeout + 0.2)
+        if waitResult == .timedOut {
+            task.cancel()
+            session.invalidateAndCancel()
             return nil
         }
+        session.finishTasksAndInvalidate()
+
+        guard let data = responseBox.get() else {
+            return nil
+        }
+
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard let syncSnapshot = try? decoder.decode(SyncUsageSnapshot.self, from: data) else {
