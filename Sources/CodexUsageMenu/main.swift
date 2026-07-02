@@ -627,6 +627,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var snapshot: UsageSnapshot?
     private var dataSource: SnapshotDataSource?
     private var sourceUnavailable = false
+    private var isRefreshing = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -681,19 +682,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func refresh(updateMenu: Bool = true) {
-        let result = SnapshotProvider.latestSnapshotResult()
+        guard isRefreshing == false else {
+            return
+        }
+        isRefreshing = true
+
+        Task.detached(priority: .utility) { [weak self] in
+            let result = SnapshotProvider.latestSnapshotResult()
+            let isAuthorityHost = SnapshotProvider.isAuthorityHost
+            if let snapshot = result?.snapshot, isAuthorityHost {
+                try? UsageSyncExporter.export(snapshot: snapshot)
+            }
+
+            await self?.finishRefresh(
+                result: result,
+                isAuthorityHost: isAuthorityHost,
+                updateMenu: updateMenu
+            )
+        }
+    }
+
+    private func finishRefresh(
+        result: SnapshotProviderResult?,
+        isAuthorityHost: Bool,
+        updateMenu: Bool
+    ) {
+        isRefreshing = false
         sourceUnavailable = result == nil || result?.remoteUnavailable == true
         if let result {
             snapshot = result.snapshot
             dataSource = result.dataSource
-        } else if SnapshotProvider.isAuthorityHost {
+        } else if isAuthorityHost {
             snapshot = nil
             dataSource = nil
         }
 
-        if let snapshot, SnapshotProvider.isAuthorityHost {
-            try? UsageSyncExporter.export(snapshot: snapshot)
-        }
         render(updateMenu: updateMenu)
     }
 
@@ -712,8 +735,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
-        refresh(updateMenu: false)
         populate(menu)
+        refresh(updateMenu: false)
     }
 
     private func populate(_ menu: NSMenu) {
