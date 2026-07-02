@@ -21,19 +21,33 @@ struct CodexUsageSnapshot: Codable, Hashable {
 struct CodexUsageLoadResult: Hashable {
     let snapshot: CodexUsageSnapshot?
     let message: String
+    let sourceName: String?
+    let sourceURL: URL?
+    let isCached: Bool
+}
+
+struct CodexUsageEndpoint: Hashable {
+    let url: URL
+    let sourceName: String
 }
 
 final class CodexUsageLoadCoordinator: @unchecked Sendable {
     private let lock = NSLock()
     private let expectedFailureCount: Int
     private let completion: (CodexUsageLoadResult) -> Void
+    private let allFailed: ([String]) -> Void
     private var completed = false
     private var failures: [String] = []
     private var tasks: [URLSessionDataTask] = []
 
-    init(expectedFailureCount: Int, completion: @escaping (CodexUsageLoadResult) -> Void) {
+    init(
+        expectedFailureCount: Int,
+        completion: @escaping (CodexUsageLoadResult) -> Void,
+        allFailed: @escaping ([String]) -> Void
+    ) {
         self.expectedFailureCount = expectedFailureCount
         self.completion = completion
+        self.allFailed = allFailed
     }
 
     func append(task: URLSessionDataTask) {
@@ -64,47 +78,50 @@ final class CodexUsageLoadCoordinator: @unchecked Sendable {
         }
         failures.append(message)
         let shouldFinish = failures.count == expectedFailureCount
-        let failureMessage = failures.joined(separator: "\n")
+        let failures = failures
         lock.unlock()
 
         if shouldFinish {
-            if let cachedSnapshot = CodexUsageSnapshotStore.cachedSnapshot() {
-                finish(CodexUsageLoadResult(
-                    snapshot: cachedSnapshot,
-                    message: "网络不可达，显示最后一次成功数据\n\(failureMessage)"
-                ))
-            } else {
-                finish(CodexUsageLoadResult(snapshot: nil, message: failureMessage))
-            }
+            allFailed(failures)
         }
     }
 }
 
 enum CodexUsageSnapshotStore {
     private static let cachedSnapshotKey = "codexUsage.lastSuccessfulSnapshot"
+    private static let companionEndpoint = CodexUsageEndpoint(
+        url: URL(string: "http://127.0.0.1:8766/snapshot")!,
+        sourceName: "当前 App"
+    )
 
-    static let snapshotURLs = [
-        URL(string: "http://10.241.1.21:8765/snapshot")!,
-        URL(string: "http://10.241.1.186:8765/snapshot")!,
-        URL(string: "http://Mac-mini.local:8765/snapshot")!,
-        URL(string: "http://linchenhaodeMacBook-Air.local:8765/snapshot")!,
-        URL(string: "http://MacBook-Air.local:8765/snapshot")!,
-        URL(string: "http://MacBookAir.local:8765/snapshot")!
+    private static let macMiniEndpoints = [
+        CodexUsageEndpoint(url: URL(string: "http://10.241.1.21:8765/snapshot")!, sourceName: "Mac mini"),
+        CodexUsageEndpoint(url: URL(string: "http://10.241.1.186:8765/snapshot")!, sourceName: "Mac mini"),
+        CodexUsageEndpoint(url: URL(string: "http://Mac-mini.local:8765/snapshot")!, sourceName: "Mac mini")
     ]
+
+    private static let macBookEndpoints = [
+        CodexUsageEndpoint(url: URL(string: "http://linchenhaodeMacBook-Air.local:8765/snapshot")!, sourceName: "MacBook Air"),
+        CodexUsageEndpoint(url: URL(string: "http://MacBook-Air.local:8765/snapshot")!, sourceName: "MacBook Air"),
+        CodexUsageEndpoint(url: URL(string: "http://MacBookAir.local:8765/snapshot")!, sourceName: "MacBook Air")
+    ]
+
+    private static let snapshotEndpoints = macMiniEndpoints + macBookEndpoints
+    static let snapshotURLs = snapshotEndpoints.map(\.url)
     static let snapshotURL = snapshotURLs[0]
 
     private static let session: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        configuration.timeoutIntervalForRequest = 2
-        configuration.timeoutIntervalForResource = 2
+        configuration.timeoutIntervalForRequest = 1.25
+        configuration.timeoutIntervalForResource = 1.25
         configuration.waitsForConnectivity = false
         return URLSession(configuration: configuration)
     }()
 
     static func load() -> CodexUsageSnapshot? {
-        for url in snapshotURLs {
-            if let snapshot = load(from: url) {
+        for endpoint in snapshotEndpoints {
+            if let snapshot = load(from: endpoint.url) {
                 saveToCache(snapshot)
                 return snapshot
             }
@@ -113,37 +130,90 @@ enum CodexUsageSnapshotStore {
     }
 
     static func load(completion: @escaping (CodexUsageSnapshot?) -> Void) {
-        loadWithDiagnostics { result in
+        load(from: [[companionEndpoint], macMiniEndpoints, macBookEndpoints], index: 0, failures: []) { result in
             completion(result.snapshot)
         }
     }
 
     static func loadWithDiagnostics(completion: @escaping (CodexUsageLoadResult) -> Void) {
+        let tiers = [macMiniEndpoints, macBookEndpoints]
+        load(from: tiers, index: 0, failures: [], completion: completion)
+    }
+
+    private static func load(
+        from tiers: [[CodexUsageEndpoint]],
+        index: Int,
+        failures: [String],
+        completion: @escaping (CodexUsageLoadResult) -> Void
+    ) {
+        guard index < tiers.count else {
+            let failureMessage = failures.joined(separator: "\n")
+            if let cachedSnapshot = cachedSnapshot() {
+                completion(CodexUsageLoadResult(
+                    snapshot: cachedSnapshot,
+                    message: "网络不可达，显示最后一次成功数据\n\(failureMessage)",
+                    sourceName: "上次成功缓存",
+                    sourceURL: nil,
+                    isCached: true
+                ))
+            } else {
+                completion(CodexUsageLoadResult(
+                    snapshot: nil,
+                    message: failureMessage,
+                    sourceName: nil,
+                    sourceURL: nil,
+                    isCached: false
+                ))
+            }
+            return
+        }
+
+        let endpoints = tiers[index]
+        guard endpoints.isEmpty == false else {
+            load(from: tiers, index: index + 1, failures: failures, completion: completion)
+            return
+        }
+
         let coordinator = CodexUsageLoadCoordinator(
-            expectedFailureCount: snapshotURLs.count,
-            completion: completion
+            expectedFailureCount: endpoints.count,
+            completion: completion,
+            allFailed: { tierFailures in
+                load(
+                    from: tiers,
+                    index: index + 1,
+                    failures: failures + tierFailures,
+                    completion: completion
+                )
+            }
         )
 
-        for url in snapshotURLs {
+        for endpoint in endpoints {
+            let url = endpoint.url
             var request = URLRequest(url: url)
             request.cachePolicy = .reloadIgnoringLocalCacheData
-            request.timeoutInterval = 2
+            request.timeoutInterval = 1.25
 
             let task = session.dataTask(with: request) { data, response, error in
                 if let error {
-                    coordinator.recordFailure("\(url.host ?? url.absoluteString): \(error.localizedDescription)")
+                    coordinator.recordFailure("\(endpoint.sourceName) \(url.host ?? url.absoluteString): \(error.localizedDescription)")
                     return
                 }
                 guard let data else {
-                    coordinator.recordFailure("\(url.host ?? url.absoluteString): 没有返回数据")
+                    coordinator.recordFailure("\(endpoint.sourceName) \(url.host ?? url.absoluteString): 没有返回数据")
                     return
                 }
                 if let snapshot = decode(data: data) {
                     saveToCache(snapshot)
-                    coordinator.finish(CodexUsageLoadResult(snapshot: snapshot, message: "已连接：\(url.host ?? url.absoluteString)"))
+                    coordinator.finish(CodexUsageLoadResult(
+                        snapshot: snapshot,
+                        message: "已连接：\(endpoint.sourceName)",
+                        sourceName: endpoint.sourceName,
+                        sourceURL: url,
+                        isCached: false
+                    ))
                 } else {
                     let statusCode = (response as? HTTPURLResponse).map { String($0.statusCode) } ?? "unknown"
-                    coordinator.recordFailure("\(url.host ?? url.absoluteString): JSON 解析失败，HTTP \(statusCode)")
+                    coordinator.recordFailure("\(endpoint.sourceName) \(url.host ?? url.absoluteString): JSON 解析失败，HTTP \(statusCode)")
                 }
             }
 

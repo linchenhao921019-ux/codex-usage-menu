@@ -30,7 +30,7 @@ chmod +x scripts/*.sh
 
 这个 App 使用和 iOS App 相同的图标。双击 App 会在菜单栏显示用量；登录后也会自动启动。菜单里点击“退出”后，系统不会自动拉起，需要重新打开 App 或重新登录。
 
-### 生成给别人安装的 zip
+### 生成给别人安装的独立 App 包
 
 适合放到 Google Drive 或 GitHub Release 里分享：
 
@@ -42,10 +42,11 @@ chmod +x scripts/*.sh
 生成文件：
 
 ```text
-dist/CodexUsageMenu-macOS-universal.zip
+dist/Codex用量-macOS-universal.zip
+dist/Codex用量-macOS-universal.dmg
 ```
 
-朋友解压后双击 `install.command` 即可安装。当前 zip 是 universal 版本，Apple Silicon 和 Intel Mac 都可以使用。
+朋友打开 DMG 或解压 zip 后，双击 `install.command` 即可安装并设置开机自启；也可以手动把 `Codex 用量.app` 拖到 Applications。当前发布包是 universal 版本，Apple Silicon 和 Intel Mac 都可以使用。
 
 注意：这个 App 没有上架和 notarize。如果 macOS 阻止打开，请右键 `install.command` 或 App，选择“打开”。朋友的 Mac 也需要已经使用过 Codex，并存在 `~/.codex/sessions` 记录，才会显示真实用量。
 
@@ -115,6 +116,16 @@ CODEX_USAGE_REMOTE_TIMEOUT_SECONDS=1.5
 `CODEX_USAGE_DISABLE_LOCAL_FALLBACK=1` 只建议调试使用；正常使用时不要开启，否则外出时 MacBook Air 无法切到本机备用。
 `CODEX_USAGE_REFRESH_SECONDS` 可以设为 2 到 300 秒之间的数值。
 `CODEX_USAGE_REMOTE_TIMEOUT_SECONDS` 控制非 Mac mini 机器等待 Mac mini 的秒数，默认 1.5 秒；Mac mini 不在当前网络时会快速回退本机数据。
+
+## 备份规则
+
+每次在 MacBook Air 或 Mac mini 修改软件后，都按同一套双备份规则保存：
+
+1. 先运行 `./scripts/package-macos-release.sh`，生成最新 macOS 分享安装包。
+2. 在 Google Drive 项目目录里保存一份完整 zip 备份，命名为 `Codex用量-最新版完整备份-YYYYMMDD-HHMMSS-GoogleDrive备份.zip`。
+3. 把源码和当前可发布安装包提交到 Git，并推送到 GitHub。
+
+`备份/` 目录只用于 Google Drive 完整备份，不提交到 GitHub；GitHub 备份保存源码和 `dist/` 下当前可发布的 zip/dmg。
 
 ## iOS 小组件原型
 

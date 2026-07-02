@@ -1,6 +1,9 @@
 .build/
+备份/
+backups/
 dist/*
 !dist/*.zip
+!dist/*.dmg
 .DS_Store
 iOSCompanion/build/
 iOSCompanion/CodexUsageCompanion.xcodeproj/project.xcworkspace/xcuserdata/

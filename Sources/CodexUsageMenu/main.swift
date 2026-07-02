@@ -205,6 +205,7 @@ final class SnapshotHTTPServer: @unchecked Sendable {
         }
         do {
             let listener = try NWListener(using: .tcp, on: 8765)
+            listener.service = NWListener.Service(name: "Codex Usage Mac mini", type: "_http._tcp")
             listener.newConnectionHandler = { [weak self] connection in
                 self?.handle(connection)
             }
@@ -618,7 +619,7 @@ enum SnapshotProvider {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let statusView = StatusBarUsageView()
     private let snapshotServer = SnapshotHTTPServer()
@@ -632,11 +633,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configureStatusItem()
         snapshotServer.start()
         refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: RefreshSettings.interval, repeats: true) { [weak self] _ in
+        scheduleStartupRefreshes()
+
+        let timer = Timer(timeInterval: RefreshSettings.interval, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.refresh()
             }
         }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
     }
 
     private func configureStatusItem() {
@@ -667,7 +672,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.needsDisplay = true
     }
 
-    private func refresh() {
+    private func scheduleStartupRefreshes() {
+        for delay in [2.0, 8.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.refresh()
+            }
+        }
+    }
+
+    private func refresh(updateMenu: Bool = true) {
         let result = SnapshotProvider.latestSnapshotResult()
         sourceUnavailable = result == nil || result?.remoteUnavailable == true
         if let result {
@@ -681,16 +694,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let snapshot, SnapshotProvider.isAuthorityHost {
             try? UsageSyncExporter.export(snapshot: snapshot)
         }
-        render()
+        render(updateMenu: updateMenu)
     }
 
-    private func render() {
+    private func render(updateMenu: Bool = true) {
         statusView.update(snapshot: snapshot)
-        statusItem.menu = makeMenu()
+        if updateMenu {
+            statusItem.menu = makeMenu()
+        }
     }
 
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
+        menu.delegate = self
+        populate(menu)
+        return menu
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        refresh(updateMenu: false)
+        populate(menu)
+    }
+
+    private func populate(_ menu: NSMenu) {
+        menu.removeAllItems()
         menu.addItem(viewItem(HeaderView()))
 
         if let snapshot {
@@ -701,36 +728,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 menu.addItem(viewItem(UsageLimitRowView(window: secondary)))
             }
             menu.addItem(NSMenuItem.separator())
-            menu.addItem(disabledItem("更新于 \(relativeTime(snapshot.timestamp))"))
-            menu.addItem(disabledItem("自动刷新：\(RefreshSettings.intervalLabel)"))
-            menu.addItem(disabledItem("数据源：\(dataSource?.label ?? SnapshotProvider.sourceLabel)"))
-            if sourceUnavailable && SnapshotProvider.isAuthorityHost == false {
-                if case .localFallback? = dataSource {
-                    menu.addItem(disabledItem("Mac mini 不可达，已切到本机备用"))
-                } else {
-                    menu.addItem(disabledItem("Mac mini 暂时不可达，显示上次数据"))
-                }
-            }
-            if SnapshotProvider.isAuthorityHost {
-                menu.addItem(disabledItem("已同步到 iCloud"))
-                menu.addItem(disabledItem(snapshotServer.localURLString))
-            } else {
-                if case .localFallback? = dataSource {
-                    menu.addItem(disabledItem(snapshotServer.localURLString))
-                } else {
-                    menu.addItem(disabledItem(SnapshotProvider.remoteSnapshotURL.absoluteString))
-                }
-            }
+            menu.addItem(disabledItem("更新：\(relativeTime(snapshot.timestamp))"))
+            menu.addItem(disabledItem("来源：\(compactSourceLabel(dataSource))"))
             if let plan = snapshot.planType {
-                menu.addItem(disabledItem("计划：\(plan)"))
+                menu.addItem(disabledItem("计划：\(compactPlanLabel(plan))"))
             }
         } else {
             if SnapshotProvider.isAuthorityHost {
-                menu.addItem(disabledItem("还没有找到 Codex 用量记录"))
-                menu.addItem(disabledItem("发起一次 Codex 对话后会自动出现"))
+                menu.addItem(disabledItem("暂无 Codex 用量记录"))
             } else {
-                menu.addItem(disabledItem("无法连接 Mac mini 数据源"))
-                menu.addItem(disabledItem(SnapshotProvider.remoteSnapshotURL.absoluteString))
+                menu.addItem(disabledItem("暂无数据：Mac mini 不可达"))
             }
         }
 
@@ -740,7 +747,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(actionItem("打开 Codex", selector: #selector(openCodex)))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(actionItem("退出", selector: #selector(quit)))
-        return menu
+    }
+
+    private func compactSourceLabel(_ source: SnapshotDataSource?) -> String {
+        switch source {
+        case .localAuthority:
+            return "Mac mini"
+        case .remoteAuthority:
+            return "Mac mini"
+        case .localFallback:
+            return "本机备用"
+        case nil:
+            return "Mac mini"
+        }
+    }
+
+    private func compactPlanLabel(_ plan: String) -> String {
+        let trimmed = plan.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first else {
+            return plan
+        }
+        return String(first).uppercased() + trimmed.dropFirst().lowercased()
     }
 
     private func viewItem(_ view: NSView) -> NSMenuItem {

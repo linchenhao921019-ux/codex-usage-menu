@@ -21,6 +21,73 @@ final class LocalNetworkPermissionPrompter {
     }
 }
 
+final class LocalSnapshotServer: @unchecked Sendable {
+    static let shared = LocalSnapshotServer()
+
+    private let queue = DispatchQueue(label: "codex-usage-ios-snapshot-server")
+    private let lock = NSLock()
+    private var listener: NWListener?
+    private var snapshotData: Data?
+
+    func start() {
+        queue.async { [weak self] in
+            guard let self, listener == nil else {
+                return
+            }
+            guard let port = NWEndpoint.Port(rawValue: 8766),
+                  let listener = try? NWListener(using: .tcp, on: port) else {
+                return
+            }
+            listener.newConnectionHandler = { [weak self] connection in
+                self?.handle(connection)
+            }
+            listener.start(queue: queue)
+            self.listener = listener
+        }
+    }
+
+    func update(snapshot: CodexUsageSnapshot?) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = snapshot.flatMap { try? encoder.encode($0) }
+
+        lock.lock()
+        snapshotData = data
+        lock.unlock()
+    }
+
+    private func handle(_ connection: NWConnection) {
+        connection.start(queue: queue)
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 2048) { [weak self] _, _, _, _ in
+            self?.respond(on: connection)
+        }
+    }
+
+    private func respond(on connection: NWConnection) {
+        lock.lock()
+        let body = snapshotData
+        lock.unlock()
+
+        let status = body == nil ? "404 Not Found" : "200 OK"
+        let payload = body ?? Data("{\"ok\":false,\"error\":\"No snapshot\"}".utf8)
+        let headers = [
+            "HTTP/1.1 \(status)",
+            "Content-Type: application/json; charset=utf-8",
+            "Cache-Control: no-store",
+            "Content-Length: \(payload.count)",
+            "Connection: close",
+            "",
+            ""
+        ].joined(separator: "\r\n")
+        var response = Data(headers.utf8)
+        response.append(payload)
+
+        connection.send(content: response, completion: .contentProcessed { _ in
+            connection.cancel()
+        })
+    }
+}
+
 @main
 struct CodexUsageCompanionApp: App {
     var body: some Scene {
@@ -34,6 +101,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var snapshot: CodexUsageSnapshot?
     @State private var syncMessage = "正在连接 Mac mini..."
+    @State private var sourceMessage = "来源：正在检测"
 
     var body: some View {
         NavigationStack {
@@ -41,9 +109,13 @@ struct ContentView: View {
                 if let snapshot {
                     UsageCard(title: "5 小时", window: snapshot.primary)
                     UsageCard(title: "1 周", window: snapshot.secondary)
-                    Text("更新于 \(snapshot.exportedAt.formatted(date: .abbreviated, time: .shortened))")
-                        .font(.footnote)
-                        .foregroundStyle(snapshot.isStale ? .orange : .secondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("更新于 \(snapshot.exportedAt.formatted(date: .abbreviated, time: .shortened))")
+                            .foregroundStyle(snapshot.isStale ? .orange : .secondary)
+                        Text(sourceMessage)
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(.footnote)
                 } else {
                     ContentUnavailableView(
                         "等待同步",
@@ -54,6 +126,9 @@ struct ContentView: View {
                         .font(.footnote.monospaced())
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
+                    Text(sourceMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
@@ -61,16 +136,18 @@ struct ContentView: View {
             .padding()
             .navigationTitle("Codex 用量")
             .task {
+                LocalSnapshotServer.shared.start()
                 LocalNetworkPermissionPrompter.shared.request()
                 refresh()
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
+                    LocalSnapshotServer.shared.start()
                     LocalNetworkPermissionPrompter.shared.request()
                     refresh()
                 }
             }
-            .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
+            .onReceive(Timer.publish(every: 15, on: .main, in: .common).autoconnect()) { _ in
                 refresh()
             }
             .toolbar {
@@ -84,16 +161,26 @@ struct ContentView: View {
     }
 
     private func refresh() {
-        syncMessage = "正在连接 Mac mini..."
+        syncMessage = "正在连接 Mac mini / MacBook Air..."
+        sourceMessage = "来源：正在检测"
         CodexUsageSnapshotStore.loadWithDiagnostics { result in
             DispatchQueue.main.async {
                 syncMessage = result.message.isEmpty ? "没有可用连接" : result.message
+                sourceMessage = sourceText(for: result)
                 if snapshot != result.snapshot {
                     snapshot = result.snapshot
-                    WidgetCenter.shared.reloadAllTimelines()
                 }
+                LocalSnapshotServer.shared.update(snapshot: result.snapshot)
+                WidgetCenter.shared.reloadTimelines(ofKind: "CodexUsageWidget")
             }
         }
+    }
+
+    private func sourceText(for result: CodexUsageLoadResult) -> String {
+        guard let sourceName = result.sourceName else {
+            return "来源：暂无"
+        }
+        return "来源：\(sourceName)"
     }
 }
 

@@ -6,16 +6,18 @@ APP_NAME="${CODEX_USAGE_APP_NAME:-Codex 用量}"
 RELEASE_ARCHS="${CODEX_USAGE_RELEASE_ARCHS:-arm64 x86_64}"
 ARCH_LABEL="${CODEX_USAGE_RELEASE_ARCH_LABEL:-universal}"
 DIST_DIR="$ROOT_DIR/dist"
-PACKAGE_NAME="CodexUsageMenu-macOS-$ARCH_LABEL"
+PACKAGE_NAME="Codex用量-macOS-$ARCH_LABEL"
 PACKAGE_DIR="$DIST_DIR/$PACKAGE_NAME"
 ZIP_PATH="$DIST_DIR/$PACKAGE_NAME.zip"
+DMG_PATH="$DIST_DIR/$PACKAGE_NAME.dmg"
 
 mkdir -p "$DIST_DIR"
-rm -rf "$PACKAGE_DIR" "$ZIP_PATH"
+rm -rf "$PACKAGE_DIR" "$ZIP_PATH" "$DMG_PATH"
 mkdir -p "$PACKAGE_DIR"
 
 APP_SOURCE="$(CODEX_USAGE_ARCHS="$RELEASE_ARCHS" CODEX_USAGE_BUILD_PATH="${CODEX_USAGE_BUILD_PATH:-/tmp/codex-usage-menu-release-build}" "$ROOT_DIR/scripts/build-macos-app.sh")"
 cp -R "$APP_SOURCE" "$PACKAGE_DIR/$APP_NAME.app"
+ln -s /Applications "$PACKAGE_DIR/Applications"
 
 cat > "$PACKAGE_DIR/install.command" <<'SCRIPT'
 #!/usr/bin/env bash
@@ -76,7 +78,9 @@ open -R "$APP_DEST"
 
 echo
 echo "安装完成：$APP_DEST"
+echo "已设置登录后自动启动。$APP_NAME 是菜单栏 App，没有普通窗口。"
 echo "如果菜单栏没有立刻出现，请双击打开 $APP_NAME.app。"
+echo "如果 macOS 阻止打开，请右键 $APP_NAME.app，选择“打开”。"
 SCRIPT
 
 chmod +x "$PACKAGE_DIR/install.command"
@@ -84,12 +88,26 @@ chmod +x "$PACKAGE_DIR/install.command"
 cat > "$PACKAGE_DIR/README.txt" <<'TEXT'
 Codex 用量 - macOS 安装说明
 
-1. 双击 install.command 安装。
-2. 如果 macOS 阻止打开，请右键 install.command，选择“打开”。
-3. 安装后会出现在 /Applications/Codex 用量.app。
-4. 它是菜单栏 App，打开后没有普通窗口，请看屏幕顶部菜单栏。
-5. 需要这台 Mac 上已经使用过 Codex，并存在 ~/.codex/sessions 记录，才会显示真实用量。
-6. 当前发布包是 universal 版本，适用于 Apple Silicon 和 Intel Mac。
+包内文件：
+- Codex 用量.app：菜单栏 App 本体。
+- install.command：一键安装脚本，会复制 App 并设置登录后自动启动。
+- Applications：手动拖拽安装用的快捷入口。
+
+快速安装：
+1. 双击 install.command 安装并设置开机自启。
+2. 安装完成后看屏幕顶部菜单栏；这个 App 没有普通窗口。
+3. 如果 macOS 阻止打开，请右键 install.command，选择“打开”。
+
+手动安装：
+1. 把“Codex 用量.app”拖到 Applications 文件夹。
+2. 双击打开 App。
+
+说明：
+- App 名称和图标与 iOS 版本一致。
+- 它是菜单栏 App，打开后没有普通窗口，请看屏幕顶部菜单栏。
+- 需要这台 Mac 上已经使用过 Codex，并存在 ~/.codex/sessions 记录，才会显示真实用量。
+- 这个 App 没有上架和 notarize。如果 macOS 阻止打开，请右键 install.command 或 App，选择“打开”。
+- 当前发布包是 universal 版本，适用于 Apple Silicon 和 Intel Mac。
 TEXT
 
 (
@@ -97,4 +115,7 @@ TEXT
   COPYFILE_DISABLE=1 ditto -c -k --norsrc --keepParent "$PACKAGE_NAME" "$ZIP_PATH"
 )
 
+hdiutil create -volname "$APP_NAME" -srcfolder "$PACKAGE_DIR" -ov -format UDZO "$DMG_PATH" >/dev/null
+
 echo "$ZIP_PATH"
+echo "$DMG_PATH"

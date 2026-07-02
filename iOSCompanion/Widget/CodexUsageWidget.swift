@@ -28,6 +28,7 @@ struct CodexUsageProvider: TimelineProvider {
 
 struct CodexUsageWidgetView: View {
     @Environment(\.widgetFamily) private var widgetFamily
+    @Environment(\.colorScheme) private var colorScheme
 
     var entry: CodexUsageEntry
 
@@ -39,7 +40,10 @@ struct CodexUsageWidgetView: View {
                 standardBody
             }
         }
-        .containerBackground(.background, for: .widget)
+        .containerBackground(for: .widget) {
+            BrandWidgetBackground()
+        }
+        .foregroundStyle(BrandWidgetPalette.primaryText(for: colorScheme))
     }
 
     private var standardBody: some View {
@@ -63,7 +67,7 @@ struct CodexUsageWidgetView: View {
                 Spacer()
                 Text("等待 Mac")
                     .font(.headline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(BrandWidgetPalette.secondaryText(for: colorScheme))
                 Spacer()
             }
         }
@@ -79,11 +83,127 @@ struct CodexUsageWidgetView: View {
                 Spacer()
                 Text("等待 Mac")
                     .font(.headline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(BrandWidgetPalette.secondaryText(for: colorScheme))
                 Spacer()
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+struct BrandWidgetBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        if colorScheme == .dark {
+            darkBackground
+        } else {
+            lightBackground
+        }
+    }
+
+    private var lightBackground: some View {
+        LinearGradient(
+            stops: [
+                .init(color: Color(red: 0.91, green: 0.98, blue: 1.00), location: 0.00),
+                .init(color: Color(red: 0.96, green: 1.00, blue: 0.98), location: 0.44),
+                .init(color: Color(red: 0.94, green: 0.92, blue: 1.00), location: 1.00)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay(alignment: .topLeading) {
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.78),
+                    Color.white.opacity(0.28),
+                    Color.clear
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        .overlay(alignment: .bottomTrailing) {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.56, green: 0.46, blue: 1.00).opacity(0.18),
+                    Color(red: 0.15, green: 0.82, blue: 0.70).opacity(0.08),
+                    Color.clear
+                ],
+                startPoint: .bottomTrailing,
+                endPoint: .topLeading
+            )
+        }
+    }
+
+    private var darkBackground: some View {
+        LinearGradient(
+            stops: [
+                .init(color: Color(red: 0.03, green: 0.09, blue: 0.14), location: 0.00),
+                .init(color: Color(red: 0.04, green: 0.18, blue: 0.22), location: 0.48),
+                .init(color: Color(red: 0.15, green: 0.12, blue: 0.27), location: 1.00)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay(alignment: .topLeading) {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.14, green: 0.86, blue: 0.92).opacity(0.28),
+                    Color(red: 0.16, green: 0.72, blue: 0.58).opacity(0.10),
+                    Color.clear
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        .overlay(alignment: .bottomTrailing) {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.58, green: 0.42, blue: 1.00).opacity(0.30),
+                    Color(red: 0.15, green: 0.78, blue: 0.64).opacity(0.10),
+                    Color.clear
+                ],
+                startPoint: .bottomTrailing,
+                endPoint: .topLeading
+            )
+        }
+    }
+}
+
+enum BrandWidgetPalette {
+    static func primaryText(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color(red: 0.92, green: 0.99, blue: 1.00)
+            : Color(red: 0.02, green: 0.04, blue: 0.05)
+    }
+
+    static func secondaryText(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color(red: 0.72, green: 0.84, blue: 0.88)
+            : Color(red: 0.34, green: 0.41, blue: 0.44)
+    }
+
+    static func activeUsage(for remainingPercent: Int, colorScheme: ColorScheme) -> Color {
+        if remainingPercent < 20 {
+            return colorScheme == .dark
+                ? Color(red: 1.00, green: 0.36, blue: 0.40)
+                : .red
+        }
+        if remainingPercent <= 60 {
+            return colorScheme == .dark
+                ? Color(red: 1.00, green: 0.64, blue: 0.23)
+                : .orange
+        }
+        return colorScheme == .dark
+            ? Color(red: 0.18, green: 0.92, blue: 0.60)
+            : Color(red: 0.12, green: 0.78, blue: 0.38)
+    }
+
+    static func inactiveUsage(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color(red: 0.74, green: 0.92, blue: 0.94).opacity(0.22)
+            : Color(red: 0.26, green: 0.34, blue: 0.39).opacity(0.12)
     }
 }
 
@@ -171,6 +291,8 @@ struct UsageLine: View {
 }
 
 struct SegmentedUsageBar: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     private let segmentCount = 5
 
     let value: Int
@@ -181,7 +303,7 @@ struct SegmentedUsageBar: View {
         HStack(spacing: 3) {
             ForEach(0..<segmentCount, id: \.self) { index in
                 Capsule()
-                    .fill(index < activeCount ? color(for: value) : .secondary.opacity(0.22))
+                    .fill(index < activeCount ? BrandWidgetPalette.activeUsage(for: value, colorScheme: colorScheme) : BrandWidgetPalette.inactiveUsage(for: colorScheme))
             }
         }
         .frame(width: width, height: height)
@@ -191,15 +313,6 @@ struct SegmentedUsageBar: View {
         max(0, min(segmentCount, Int((Double(value) / 20.0).rounded())))
     }
 
-    private func color(for remainingPercent: Int) -> Color {
-        if remainingPercent < 20 {
-            return .red
-        }
-        if remainingPercent <= 60 {
-            return .orange
-        }
-        return .green
-    }
 }
 
 struct CodexUsageWidget: Widget {
