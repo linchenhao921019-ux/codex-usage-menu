@@ -112,8 +112,6 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("更新于 \(snapshot.exportedAt.formatted(date: .abbreviated, time: .shortened))")
                             .foregroundStyle(snapshot.isStale ? .orange : .secondary)
-                        Text(sourceMessage)
-                            .foregroundStyle(.secondary)
                     }
                     .font(.footnote)
                 } else {
@@ -126,12 +124,14 @@ struct ContentView: View {
                         .font(.footnote.monospaced())
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
-                    Text(sourceMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
+
+                Text(sourceMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
             .padding()
             .navigationTitle("Codex 用量")
