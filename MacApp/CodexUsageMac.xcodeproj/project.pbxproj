@@ -1,0 +1,379 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		20A000000000000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20B000000000000000000001 /* main.swift */; };
+		20A000000000000000000002 /* CodexUsageMacWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20B000000000000000000002 /* CodexUsageMacWidget.swift */; };
+		20A000000000000000000003 /* CodexUsageMacWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 20B000000000000000000006 /* CodexUsageMacWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		20C000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 20D000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 20E000000000000000000002;
+			remoteInfo = CodexUsageMacWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		20F000000000000000000001 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				20A000000000000000000003 /* CodexUsageMacWidgetExtension.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		20B000000000000000000001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = main.swift; path = ../Sources/CodexUsageMenu/main.swift; sourceTree = "<group>"; };
+		20B000000000000000000002 /* CodexUsageMacWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CodexUsageMacWidget.swift; path = ../Sources/CodexUsageMacWidget/CodexUsageMacWidget.swift; sourceTree = "<group>"; };
+		20B000000000000000000003 /* CodexUsageMenu-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "CodexUsageMenu-Info.plist"; sourceTree = "<group>"; };
+		20B000000000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = ../Sources/CodexUsageMacWidget/Info.plist; sourceTree = "<group>"; };
+		20B000000000000000000005 /* Codex 用量.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Codex 用量.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		20B000000000000000000006 /* CodexUsageMacWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CodexUsageMacWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		20B000000000000000000007 /* CodexUsageMacWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = CodexUsageMacWidget.entitlements; path = ../Sources/CodexUsageMacWidget/CodexUsageMacWidget.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		20G000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		20G000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		20H000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				20H000000000000000000002 /* App */,
+				20H000000000000000000003 /* Widget */,
+				20H000000000000000000004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		20H000000000000000000002 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				20B000000000000000000001 /* main.swift */,
+				20B000000000000000000003 /* CodexUsageMenu-Info.plist */,
+			);
+			path = .;
+			sourceTree = "<group>";
+		};
+		20H000000000000000000003 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				20B000000000000000000002 /* CodexUsageMacWidget.swift */,
+				20B000000000000000000004 /* Info.plist */,
+				20B000000000000000000007 /* CodexUsageMacWidget.entitlements */,
+			);
+			name = Widget;
+			sourceTree = "<group>";
+		};
+		20H000000000000000000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				20B000000000000000000005 /* Codex 用量.app */,
+				20B000000000000000000006 /* CodexUsageMacWidgetExtension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		20E000000000000000000001 /* CodexUsageMenu */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 20I000000000000000000001 /* Build configuration list for PBXNativeTarget "CodexUsageMenu" */;
+			buildPhases = (
+				20J000000000000000000001 /* Sources */,
+				20G000000000000000000001 /* Frameworks */,
+				20F000000000000000000001 /* Embed App Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				20L000000000000000000001 /* PBXTargetDependency */,
+			);
+			name = CodexUsageMenu;
+			productName = "Codex 用量";
+			productReference = 20B000000000000000000005 /* Codex 用量.app */;
+			productType = "com.apple.product-type.application";
+		};
+		20E000000000000000000002 /* CodexUsageMacWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 20I000000000000000000002 /* Build configuration list for PBXNativeTarget "CodexUsageMacWidgetExtension" */;
+			buildPhases = (
+				20J000000000000000000002 /* Sources */,
+				20G000000000000000000002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CodexUsageMacWidgetExtension;
+			productName = CodexUsageMacWidgetExtension;
+			productReference = 20B000000000000000000006 /* CodexUsageMacWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		20D000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					20E000000000000000000001 = {
+						CreatedOnToolsVersion = 26.6;
+						ProvisioningStyle = Automatic;
+					};
+					20E000000000000000000002 = {
+						CreatedOnToolsVersion = 26.6;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 20I000000000000000000003 /* Build configuration list for PBXProject "CodexUsageMac" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = 20H000000000000000000001;
+			productRefGroup = 20H000000000000000000004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				20E000000000000000000001 /* CodexUsageMenu */,
+				20E000000000000000000002 /* CodexUsageMacWidgetExtension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		20J000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				20A000000000000000000001 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		20J000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				20A000000000000000000002 /* CodexUsageMacWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		20L000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 20E000000000000000000002 /* CodexUsageMacWidgetExtension */;
+			targetProxy = 20C000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		20M000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 8Z7VUWCRXS;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		20M000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 8Z7VUWCRXS;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		20M000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ../Sources/CodexUsageMacWidget/CodexUsageMacWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 8Z7VUWCRXS;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "CodexUsageMenu-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.codexusage.menu;
+				PRODUCT_NAME = "Codex 用量";
+				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		20M000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ../Sources/CodexUsageMacWidget/CodexUsageMacWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 8Z7VUWCRXS;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "CodexUsageMenu-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.codexusage.menu;
+				PRODUCT_NAME = "Codex 用量";
+				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		20M000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 8Z7VUWCRXS;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ../Sources/CodexUsageMacWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.codexusage.menu.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		20M000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 8Z7VUWCRXS;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ../Sources/CodexUsageMacWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.codexusage.menu.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		20I000000000000000000001 /* Build configuration list for PBXNativeTarget "CodexUsageMenu" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				20M000000000000000000003 /* Debug */,
+				20M000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		20I000000000000000000002 /* Build configuration list for PBXNativeTarget "CodexUsageMacWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				20M000000000000000000005 /* Debug */,
+				20M000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		20I000000000000000000003 /* Build configuration list for PBXProject "CodexUsageMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				20M000000000000000000001 /* Debug */,
+				20M000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 20D000000000000000000001 /* Project object */;
+}
