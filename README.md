@@ -9,5 +9,5 @@ Codex 用量用于查看 Codex 剩余额度：
 
 ## 版本号
 
-- Mac 端：v1.2（build 5）
+- Mac 端：v1.2（build 6）
 - iOS 端：v1.2（build 4）

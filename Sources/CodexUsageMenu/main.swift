@@ -1304,17 +1304,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 menu.addItem(viewItem(UsageLimitRowView(window: secondary)))
             }
             menu.addItem(NSMenuItem.separator())
-            menu.addItem(disabledItem("数据：\(elapsedTime(snapshot.timestamp))"))
-            menu.addItem(disabledItem("来源：\(compactSourceLabel(dataSource))"))
-            if let planType = snapshot.planType {
-                menu.addItem(disabledItem("方案：\(compactPlanLabel(planType))"))
-            }
-            if let creditLabel = creditStatusLabel(snapshot.credits) {
-                menu.addItem(disabledItem(creditLabel))
-            }
-            if let refreshStatus {
-                menu.addItem(disabledItem("状态：\(refreshStatus)"))
-            }
+            menu.addItem(disabledItem("更新：\(elapsedTime(snapshot.timestamp))"))
         } else {
             if SnapshotProvider.isAuthorityHost {
                 menu.addItem(disabledItem("暂无 Codex 用量记录"))
@@ -1336,48 +1326,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(actionItem("打开 Codex", selector: #selector(openCodex)))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(actionItem("退出", selector: #selector(quit)))
-    }
-
-    private func compactSourceLabel(_ source: SnapshotDataSource?) -> String {
-        switch source {
-        case .liveCodex:
-            return "Codex 实时"
-        case .localAuthority:
-            return "本机"
-        case .remoteAuthority:
-            return "远程 Mac"
-        case .localFallback:
-            return "本机备用"
-        case nil:
-            return SnapshotProvider.isAuthorityHost ? "本机" : "远程 Mac"
-        }
-    }
-
-    private func compactPlanLabel(_ plan: String) -> String {
-        let trimmed = plan.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let first = trimmed.first else {
-            return plan
-        }
-        return String(first).uppercased() + trimmed.dropFirst().lowercased()
-    }
-
-    private func creditStatusLabel(_ credits: UsageCredits?) -> String? {
-        guard let credits else {
-            return nil
-        }
-        if credits.unlimited == true {
-            return "附加额度：无限"
-        }
-        if let balance = credits.balance {
-            return "附加额度：余额 \(balance.formatted(.number.precision(.fractionLength(0...2))))"
-        }
-        if credits.hasCredits == true {
-            return "附加额度：可用"
-        }
-        if credits.hasCredits == false {
-            return "附加额度：未启用"
-        }
-        return nil
     }
 
     private func viewItem(_ view: NSView) -> NSMenuItem {
