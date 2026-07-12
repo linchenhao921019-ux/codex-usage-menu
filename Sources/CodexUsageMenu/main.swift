@@ -281,8 +281,8 @@ enum LiveRateLimitReader {
         }
 
         guard let rateLimits,
-              let primary = window(rateLimits["primary"]),
-              let secondary = window(rateLimits["secondary"]) else {
+              let primary = window(rateLimits["primary"], fetchedAt: fetchedAt),
+              let secondary = window(rateLimits["secondary"], fetchedAt: fetchedAt) else {
             return nil
         }
 
@@ -310,16 +310,18 @@ enum LiveRateLimitReader {
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }
 
-    private static func window(_ value: Any?) -> UsageWindow? {
+    private static func window(_ value: Any?, fetchedAt: Date) -> UsageWindow? {
         guard let object = value as? [String: Any],
               let usedPercent = number(object["usedPercent"]),
               let windowMinutes = number(object["windowDurationMins"]) else {
             return nil
         }
+        let resetsAt = number(object["resetsAt"]).map(Date.init(timeIntervalSince1970:))
+        let hasExpired = resetsAt.map { $0 <= fetchedAt } ?? false
         return UsageWindow(
-            usedPercent: usedPercent,
+            usedPercent: hasExpired ? 0 : usedPercent,
             windowMinutes: Int(windowMinutes),
-            resetsAt: number(object["resetsAt"]).map(Date.init(timeIntervalSince1970:))
+            resetsAt: hasExpired ? nil : resetsAt
         )
     }
 
@@ -1244,6 +1246,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         guard let result else {
             refreshStatus = "没有读到 Codex 用量记录"
+            return
+        }
+
+        if case .liveCodex = result.dataSource {
+            refreshStatus = "已检查服务器 \(formatRefreshTime(Date()))"
             return
         }
 

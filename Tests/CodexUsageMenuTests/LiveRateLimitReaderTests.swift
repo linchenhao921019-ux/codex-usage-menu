@@ -18,4 +18,19 @@ final class LiveRateLimitReaderTests: XCTestCase {
         XCTAssertEqual(snapshot?.secondary?.remainingPercent, 66)
         XCTAssertEqual(snapshot?.planType, "plus")
     }
+
+    func testTreatsExpiredServerWindowAsResetWithoutAUsageEvent() throws {
+        let response = #"{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":80,"windowDurationMins":300,"resetsAt":1699999999},"secondary":{"usedPercent":34,"windowDurationMins":10080,"resetsAt":1700003600},"planType":"plus"}}}"#
+        let fetchedAt = Date(timeIntervalSince1970: 1_700_000_000)
+
+        let snapshot = LiveRateLimitReader.snapshot(
+            fromResponseData: try XCTUnwrap(response.data(using: .utf8)),
+            fetchedAt: fetchedAt
+        )
+
+        XCTAssertEqual(snapshot?.primary?.remainingPercent, 100)
+        XCTAssertNil(snapshot?.primary?.resetsAt)
+        XCTAssertEqual(snapshot?.secondary?.remainingPercent, 66)
+        XCTAssertNotNil(snapshot?.secondary?.resetsAt)
+    }
 }
