@@ -29,6 +29,8 @@ struct CodexUsageProvider: TimelineProvider {
 struct CodexUsageWidgetView: View {
     @Environment(\.widgetFamily) private var widgetFamily
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(CodexWidgetPreferences.styleKey, store: CodexWidgetPreferences.defaults)
+    private var widgetStyle = CodexWidgetStyle.ring.rawValue
 
     var entry: CodexUsageEntry
 
@@ -47,22 +49,33 @@ struct CodexUsageWidgetView: View {
     }
 
     private var standardBody: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        Group {
+            if let snapshot = entry.snapshot,
+               CodexWidgetStyle(rawValue: widgetStyle) == .largeNumber {
+                LargeNumberWidgetBody(snapshot: snapshot)
+            } else {
+                ringBody
+            }
+        }
+    }
+
+    private var ringBody: some View {
+        VStack(spacing: 3) {
             if let snapshot = entry.snapshot {
-                HStack {
+                ZStack {
                     Text("Codex")
                         .font(.headline.weight(.semibold))
-                    Spacer()
-                    if snapshot.isStale {
-                        Image(systemName: "clock.badge.exclamationmark")
-                            .foregroundStyle(.orange)
+
+                    HStack {
+                        Spacer()
+                        if snapshot.isStale {
+                            Image(systemName: "clock.badge.exclamationmark")
+                                .foregroundStyle(.orange)
+                        }
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    UsageLine(label: "5h", window: snapshot.primary, scale: .standard)
-                    UsageLine(label: "7d", window: snapshot.secondary, scale: .standard)
-                }
+                WeeklyUsageHero(window: snapshot.weekly)
             } else {
                 Spacer()
                 Text("等待 Mac")
@@ -71,14 +84,15 @@ struct CodexUsageWidgetView: View {
                 Spacer()
             }
         }
-        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
     private var compactBody: some View {
         VStack(alignment: .leading, spacing: 4) {
             if let snapshot = entry.snapshot {
-                UsageLine(label: "5h", window: snapshot.primary, scale: .compact)
-                UsageLine(label: "7d", window: snapshot.secondary, scale: .compact)
+                UsageLine(label: "7d", window: snapshot.weekly, scale: .compact)
             } else {
                 Spacer()
                 Text("等待 Mac")
@@ -87,7 +101,101 @@ struct CodexUsageWidgetView: View {
                 Spacer()
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .padding(.vertical, 4)
+    }
+}
+
+struct LargeNumberWidgetBody: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let snapshot: CodexUsageSnapshot
+
+    var body: some View {
+        let window = snapshot.weekly
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text("Codex").font(.headline.weight(.semibold))
+                Spacer()
+                Text("7d")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(activeColor(window), in: RoundedRectangle(cornerRadius: 8))
+            }
+            Spacer(minLength: 0)
+            Text(window.map { "\($0.remainingPercent)%" } ?? "--")
+                .font(.system(size: 48, weight: .semibold, design: .rounded).monospacedDigit())
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+            FullWidthSegmentedUsageBar(value: window?.remainingPercent ?? 0)
+            Text(resetLabel(window))
+                .font(.caption2)
+                .foregroundStyle(BrandWidgetPalette.secondaryText(for: colorScheme))
+                .lineLimit(1)
+        }
+        .padding(14)
+    }
+
+    private func activeColor(_ window: CodexUsageWindow?) -> Color {
+        BrandWidgetPalette.activeUsage(for: window?.remainingPercent ?? 0, colorScheme: colorScheme)
+    }
+
+    private func resetLabel(_ window: CodexUsageWindow?) -> String {
+        guard let resetsAt = window?.resetsAt else { return "重置时间 --" }
+        return "\(resetsAt.codexChineseMonthDay)重置"
+    }
+}
+
+struct WeeklyUsageHero: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    let window: CodexUsageWindow?
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                Circle()
+                    .stroke(BrandWidgetPalette.inactiveUsage(for: colorScheme), lineWidth: 9)
+
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(
+                        BrandWidgetPalette.activeUsage(for: window?.remainingPercent ?? 0, colorScheme: colorScheme),
+                        style: StrokeStyle(lineWidth: 9, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+
+                VStack(spacing: -1) {
+                    Text(window.map { "\($0.remainingPercent)%" } ?? "--")
+                        .font(.system(size: 30, weight: .semibold, design: .rounded).monospacedDigit())
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
+
+                    Text("7 天剩余")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(BrandWidgetPalette.secondaryText(for: colorScheme))
+                }
+            }
+            .frame(width: 94, height: 94)
+
+            Text(resetLabel)
+                .font(.caption2)
+                .foregroundStyle(BrandWidgetPalette.secondaryText(for: colorScheme))
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var progress: Double {
+        Double(window?.remainingPercent ?? 0) / 100
+    }
+
+    private var resetLabel: String {
+        guard let resetsAt = window?.resetsAt else {
+            return "重置时间 --"
+        }
+        return "\(resetsAt.codexChineseMonthDay)重置"
     }
 }
 
@@ -315,6 +423,29 @@ struct SegmentedUsageBar: View {
 
 }
 
+struct FullWidthSegmentedUsageBar: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    let value: Int
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<5, id: \.self) { index in
+                Capsule()
+                    .fill(index < activeCount
+                        ? BrandWidgetPalette.activeUsage(for: value, colorScheme: colorScheme)
+                        : BrandWidgetPalette.inactiveUsage(for: colorScheme))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 10)
+    }
+
+    private var activeCount: Int {
+        max(0, min(5, Int((Double(value) / 20.0).rounded())))
+    }
+}
+
 struct CodexUsageWidget: Widget {
     let kind = "CodexUsageWidget"
 
@@ -323,7 +454,7 @@ struct CodexUsageWidget: Widget {
             CodexUsageWidgetView(entry: entry)
         }
         .configurationDisplayName("Codex 用量")
-        .description("显示 Mac 同步来的 Codex 5 小时和 7 天剩余额度。")
+        .description("显示 Mac 同步来的 Codex 7 天剩余额度。")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular])
     }
 }

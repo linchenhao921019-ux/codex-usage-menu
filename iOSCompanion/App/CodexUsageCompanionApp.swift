@@ -102,15 +102,31 @@ struct ContentView: View {
     @State private var snapshot: CodexUsageSnapshot?
     @State private var sourceMessage = "来源：正在检测"
     @State private var statusMessage = ""
+    @AppStorage(CodexWidgetPreferences.styleKey, store: CodexWidgetPreferences.defaults)
+    private var widgetStyle = CodexWidgetStyle.ring.rawValue
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
                 if let snapshot {
-                    UsageCard(title: "5 小时", window: snapshot.primary)
-                    UsageCard(title: "1 周", window: snapshot.secondary)
+                    UsageCard(title: "1 周", window: snapshot.weekly)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("小组件样式", systemImage: "rectangle.3.group")
+                            .font(.headline)
+                        Picker("小组件样式", selection: $widgetStyle) {
+                            ForEach(CodexWidgetStyle.allCases, id: \.rawValue) { style in
+                                Text(style.title).tag(style.rawValue)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    .padding()
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .onChange(of: widgetStyle) { _, _ in
+                        WidgetCenter.shared.reloadTimelines(ofKind: "CodexUsageWidget")
+                    }
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("更新于 \(snapshot.exportedAt.formatted(date: .abbreviated, time: .shortened))")
+                        Text("更新于 \(snapshot.exportedAt.codexChineseMonthDayTime)")
                             .foregroundStyle(snapshot.isStale ? .orange : .secondary)
                         HStack(spacing: 6) {
                             Image(systemName: "desktopcomputer")
@@ -211,7 +227,7 @@ struct UsageCard: View {
                     .tint(color(for: window.remainingPercent))
 
                 if let resetsAt = window.resetsAt {
-                    Text("重置：\(resetsAt.formatted(date: .abbreviated, time: .shortened))")
+                    Text("重置：\(resetsAt.codexChineseMonthDayTime)")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

@@ -1,5 +1,43 @@
 import Foundation
 
+extension Date {
+    var codexChineseMonthDay: String {
+        let components = Calendar.current.dateComponents([.month, .day], from: self)
+        return "\(components.month ?? 0)月\(components.day ?? 0)日"
+    }
+
+    var codexChineseMonthDayTime: String {
+        let components = Calendar.current.dateComponents([.month, .day, .hour, .minute], from: self)
+        return String(
+            format: "%d月%d日 %02d:%02d",
+            components.month ?? 0,
+            components.day ?? 0,
+            components.hour ?? 0,
+            components.minute ?? 0
+        )
+    }
+}
+
+enum CodexWidgetStyle: String, CaseIterable {
+    case ring
+    case largeNumber
+
+    var title: String {
+        switch self {
+        case .ring: return "圆环"
+        case .largeNumber: return "大数字"
+        }
+    }
+}
+
+enum CodexWidgetPreferences {
+    static let suiteName = "group.com.linchenhao921019.codexusage"
+    static let styleKey = "widgetDisplayStyle"
+    static var defaults: UserDefaults {
+        UserDefaults(suiteName: suiteName) ?? .standard
+    }
+}
+
 struct CodexUsageWindow: Codable, Hashable {
     let label: String
     let compactLabel: String
@@ -16,6 +54,13 @@ struct CodexUsageSnapshot: Codable, Hashable {
     let planType: String?
     let primary: CodexUsageWindow?
     let secondary: CodexUsageWindow?
+
+    var weekly: CodexUsageWindow? {
+        [primary, secondary]
+            .compactMap { $0 }
+            .filter { abs($0.windowMinutes - 10_080) <= 504 }
+            .min { abs($0.windowMinutes - 10_080) < abs($1.windowMinutes - 10_080) }
+    }
 }
 
 struct CodexUsageLoadResult: Hashable {

@@ -62,6 +62,13 @@ struct UsageSnapshot: Codable {
     let credits: UsageCredits?
     let primary: UsageWindow?
     let secondary: UsageWindow?
+
+    var weekly: UsageWindow? {
+        [primary, secondary]
+            .compactMap { $0 }
+            .filter { abs($0.windowMinutes - 10_080) <= 504 }
+            .min { abs($0.windowMinutes - 10_080) < abs($1.windowMinutes - 10_080) }
+    }
 }
 
 struct SyncUsageWindow: Codable {
@@ -1297,11 +1304,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(viewItem(HeaderView()))
 
         if let snapshot {
-            if let primary = snapshot.primary {
-                menu.addItem(viewItem(UsageLimitRowView(window: primary)))
-            }
-            if let secondary = snapshot.secondary {
-                menu.addItem(viewItem(UsageLimitRowView(window: secondary)))
+            if let weekly = snapshot.weekly {
+                menu.addItem(viewItem(UsageLimitRowView(window: weekly)))
             }
             menu.addItem(NSMenuItem.separator())
             menu.addItem(disabledItem("更新：\(elapsedTime(snapshot.timestamp))"))
@@ -1403,28 +1407,20 @@ final class HeaderView: NSView {
 }
 
 final class StatusBarUsageView: NSView {
-    private let primaryRow = StatusBarUsageRowView()
-    private let secondaryRow = StatusBarUsageRowView()
+    private let weeklyRow = StatusBarUsageRowView()
 
     init() {
         super.init(frame: NSRect(x: 0, y: 0, width: 106, height: 22))
         wantsLayer = true
 
-        primaryRow.translatesAutoresizingMaskIntoConstraints = false
-        secondaryRow.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(primaryRow)
-        addSubview(secondaryRow)
+        weeklyRow.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(weeklyRow)
 
         NSLayoutConstraint.activate([
-            primaryRow.leadingAnchor.constraint(equalTo: leadingAnchor),
-            primaryRow.trailingAnchor.constraint(equalTo: trailingAnchor),
-            primaryRow.topAnchor.constraint(equalTo: topAnchor),
-            primaryRow.heightAnchor.constraint(equalToConstant: 11),
-
-            secondaryRow.leadingAnchor.constraint(equalTo: leadingAnchor),
-            secondaryRow.trailingAnchor.constraint(equalTo: trailingAnchor),
-            secondaryRow.topAnchor.constraint(equalTo: primaryRow.bottomAnchor),
-            secondaryRow.heightAnchor.constraint(equalToConstant: 11)
+            weeklyRow.leadingAnchor.constraint(equalTo: leadingAnchor),
+            weeklyRow.trailingAnchor.constraint(equalTo: trailingAnchor),
+            weeklyRow.centerYAnchor.constraint(equalTo: centerYAnchor),
+            weeklyRow.heightAnchor.constraint(equalToConstant: 11)
         ])
 
         update(snapshot: nil)
@@ -1439,16 +1435,10 @@ final class StatusBarUsageView: NSView {
     }
 
     func update(snapshot: UsageSnapshot?) {
-        if let primary = snapshot?.primary {
-            primaryRow.update(window: primary)
+        if let weekly = snapshot?.weekly {
+            weeklyRow.update(window: weekly)
         } else {
-            primaryRow.updatePlaceholder(label: "5h")
-        }
-
-        if let secondary = snapshot?.secondary {
-            secondaryRow.update(window: secondary)
-        } else {
-            secondaryRow.updatePlaceholder(label: "7d")
+            weeklyRow.updatePlaceholder(label: "7d")
         }
     }
 }

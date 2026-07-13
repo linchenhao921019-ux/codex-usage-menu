@@ -7,6 +7,16 @@ enum CodexUsageSnapshotSelectionTests {
         let air = endpoint(name: "MacBook Air", port: 1001)
         let mini = endpoint(name: "Mac mini", port: 1002)
 
+        let weekly = CodexUsageWindow(
+            label: "1 周", compactLabel: "7d", usedPercent: 24,
+            remainingPercent: 76, windowMinutes: 10_080, resetsAt: nil
+        )
+        let weeklySnapshot = CodexUsageSnapshot(
+            schemaVersion: 2, exportedAt: base, snapshotTimestamp: base,
+            planType: nil, primary: weekly, secondary: nil
+        )
+        precondition(weeklySnapshot.weekly?.remainingPercent == 76)
+
         assertSelected(
             "Mac mini",
             from: [

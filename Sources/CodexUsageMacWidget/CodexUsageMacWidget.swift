@@ -19,6 +19,13 @@ struct CodexMacUsageSnapshot: Codable, Hashable {
     let primary: CodexMacUsageWindow?
     let secondary: CodexMacUsageWindow?
 
+    var weekly: CodexMacUsageWindow? {
+        [primary, secondary]
+            .compactMap { $0 }
+            .filter { abs($0.windowMinutes - 10_080) <= 504 }
+            .min { abs($0.windowMinutes - 10_080) < abs($1.windowMinutes - 10_080) }
+    }
+
     var isStale: Bool {
         Date().timeIntervalSince(exportedAt) > 60 * 60
     }
@@ -222,12 +229,10 @@ struct CodexMacUsageWidgetView: View {
         VStack(alignment: .leading, spacing: 8) {
             widgetHeader(snapshot)
 
-            MacHeroMetric(label: "5h", window: snapshot.primary)
+            MacHeroMetric(label: "7d", window: snapshot.weekly)
                 .padding(.top, 1)
 
             Spacer(minLength: 0)
-
-            MacSecondaryMetric(label: "7d", window: snapshot.secondary)
         }
     }
 
@@ -235,10 +240,7 @@ struct CodexMacUsageWidgetView: View {
         VStack(alignment: .leading, spacing: 12) {
             widgetHeader(snapshot)
 
-            HStack(spacing: 14) {
-                MacMetricCard(label: "5h", window: snapshot.primary, isPrimary: true)
-                MacMetricCard(label: "7d", window: snapshot.secondary, isPrimary: false)
-            }
+            MacMetricCard(label: "7d", window: snapshot.weekly, isPrimary: true)
         }
     }
 
